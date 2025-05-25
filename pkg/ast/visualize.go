@@ -16,9 +16,11 @@ func nextNodeID() string {
 func ExportASTToGraphviz(prog *Prog, w io.Writer) {
 	fmt.Fprintln(w, "digraph AST {")
 	fmt.Fprintln(w, `  node [shape=box];`)
+	root_id := nextNodeID()
+	fmt.Fprintf(w, `  %s [label="Program"]`+"\n", root_id)
 
 	for _, decl := range prog.Declarations {
-		writeFunctionDeclaration(decl, "root", w)
+		writeFunctionDeclaration(decl, root_id, w)
 	}
 
 	fmt.Fprintln(w, "}")
@@ -107,6 +109,15 @@ func writeStatement(stmt Statement, parent string, w io.Writer) {
 		fmt.Fprintf(w, `  %s [label="Right"]`+"\n", right_id)
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, right_id)
 		writeExpression(s.Right, right_id, w)
+	case *ReturnStatement:
+		fmt.Fprintf(w, `  %s [label="Type: Return"]`+"\n", type_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, type_id)
+
+		value_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Return Value"]`+"\n", value_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, value_id)
+
+		writeExpression(s.Value, value_id, w)
 	}
 }
 
@@ -153,6 +164,10 @@ func writeExpression(expr Expression, parent string, w io.Writer) {
 		value_id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Value: %s"]`+"\n", value_id, escape(e.Value))
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, value_id)
+	case *EmptyExpression:
+		type_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Type: Empty Expression"]`+"\n", type_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, type_id)
 	}
 }
 

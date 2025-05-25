@@ -223,12 +223,29 @@ func (p *Parser) ParseFunctionCall() *ast.FunctionCallStatement {
 	}
 }
 
+func (p *Parser) ParseReturn() *ast.ReturnStatement {
+	// consume the "return"
+	p.Next()
+	var e ast.Expression
+
+	if p.MatchNext(lexer.Punctuator, ";", 0) {
+		e = &ast.EmptyExpression{}
+	} else {
+		e = p.ParseExpression()
+	}
+
+	return &ast.ReturnStatement{
+		Value: e,
+	}
+}
+
 func (p *Parser) ParseStatement() ast.Statement {
 	// determine kind of statement
 	// right now we have assignment, variable declaration and function call
 	// assignment is the easiest, just an <identifier> '=' <expression>';'
 	// then we have function call which is <identifier> '(' [<expression> { ',' <expression> } ] ')'
 	// then we have variable declaration which is <type> <identifier> '=' <expression>
+	// then we have return statement which is 'return' <expression>
 
 	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Operator, "=", 1) {
 		return p.ParseAssignment()
@@ -240,6 +257,10 @@ func (p *Parser) ParseStatement() ast.Statement {
 
 	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Punctuator, "(", 1) {
 		return p.ParseFunctionCall()
+	}
+
+	if p.MatchNext(lexer.Keyword, "return", 0) {
+		return p.ParseReturn()
 	}
 
 	c := p.Next()

@@ -12,7 +12,9 @@ var PunctuatorTokens = map[string]bool{
 	".": true,
 }
 
-var KeywordTokens = map[string]bool{}
+var KeywordTokens = map[string]bool{
+	"return": true,
+}
 
 var OperatorTokens = map[string]bool{
 	"=":  true,

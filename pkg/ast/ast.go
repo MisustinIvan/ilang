@@ -158,10 +158,24 @@ type CommentStatement struct {
 func (s *CommentStatement) statement_mark() {}
 func (s *CommentStatement) String() string  { return s.Value }
 
+type ReturnStatement struct {
+	Value Expression
+}
+
+func (s *ReturnStatement) statement_mark() {}
+func (s *ReturnStatement) String() string {
+	return "return " + s.Value.String()
+}
+
 type Expression interface {
 	expression_mark()
 	String() string
 }
+
+type EmptyExpression struct{}
+
+func (e *EmptyExpression) expression_mark() {}
+func (e *EmptyExpression) String() string   { return "empty expression" }
 
 type LiteralExpression struct {
 	Type  Type

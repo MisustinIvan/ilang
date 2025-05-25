@@ -12,11 +12,12 @@ type : { '*' }
 fun_decl : type ident '(' parm_types ')' '{' body '}'
 parm_types : [ type ident { ',' type id } ]
 body : { stmt }
-stmt : assg | call_stmt | var_decl
+stmt : [assg | call_stmt | var_decl | return_stmt] ';'
 
-var_decl : type id '=' expr ';'
-assg : id '=' expr ';'
-call_stmt : id '(' [ expr { ',' expr }] ')' ';'
+var_decl : type id '=' expr
+assg : id '=' expr
+call_stmt : id '(' [ expr { ',' expr }] ')'
+return_stmt : 'return' expr
 
 expr : literal | id | call_expr
 
