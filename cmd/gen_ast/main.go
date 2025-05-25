@@ -7,7 +7,6 @@ import (
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
 	"os"
-	"os/exec"
 )
 
 func printUsage() {

@@ -2,89 +2,147 @@ digraph AST {
   node [shape=box];
   node1 [label="Program"]
   node2 [label="Function Declaration"]
+  node1 -> node2
   node3 [label="Name: test"]
   node2 -> node3
-  node4 [label="Return Type: Void"]
+  node4 [label="Return Type: unit"]
   node2 -> node4
   node5 [label="Parameters"]
   node2 -> node5
-  node6 [label="Parameter: Boolean a"]
+  node6 [label="Parameter: bool a"]
   node5 -> node6
-  node7 [label="Parameter: Integer b"]
+  node7 [label="Parameter: int b"]
   node5 -> node7
-  node1 -> node2
   node8 [label="Body"]
   node2 -> node8
-  node9 [label="Statement"]
+  node9 [label="AssignmentExpression"]
   node8 -> node9
-  node10 [label="Type: Assignment"]
+  node10 [label="Left: c"]
   node9 -> node10
-  node11 [label="Left: c"]
+  node11 [label="Right"]
   node9 -> node11
-  node12 [label="Right"]
-  node9 -> node12
-  node13 [label="Expression"]
-  node12 -> node13
-  node14 [label="Type: Literal"]
+  node12 [label="BinaryExpression"]
+  node11 -> node12
+  node13 [label="Literal"]
+  node14 [label="Type: int"]
   node13 -> node14
-  node15 [label="Literal Type: Integer"]
+  node15 [label="Value: 10"]
   node13 -> node15
-  node16 [label="Value: 10"]
-  node13 -> node16
-  node17 [label="Statement"]
-  node8 -> node17
-  node18 [label="Type: Function Call"]
+  node12 -> node13
+  node16 [label="Operator: 0"]
+  node12 -> node16
+  node17 [label="BinaryExpression"]
+  node12 -> node17
+  node18 [label="Literal"]
+  node19 [label="Type: int"]
+  node18 -> node19
+  node20 [label="Value: 2"]
+  node18 -> node20
   node17 -> node18
-  node19 [label="Function name: printf"]
-  node17 -> node19
-  node20 [label="Args"]
-  node17 -> node20
-  node21 [label="Expression"]
-  node20 -> node21
-  node22 [label="Type: Literal"]
-  node21 -> node22
-  node23 [label="Literal Type: String"]
-  node21 -> node23
-  node24 [label="Value: \"%d\""]
-  node21 -> node24
-  node25 [label="Expression"]
-  node20 -> node25
-  node26 [label="Type: Function Call"]
-  node25 -> node26
-  node27 [label="Function name: ligma"]
-  node25 -> node27
-  node28 [label="Args"]
-  node25 -> node28
-  node29 [label="Expression"]
+  node21 [label="Operator: 2"]
+  node17 -> node21
+  node22 [label="SeparatedExpression"]
+  node17 -> node22
+  node23 [label="BinaryExpression"]
+  node22 -> node23
+  node24 [label="Literal"]
+  node25 [label="Type: int"]
+  node24 -> node25
+  node26 [label="Value: 69"]
+  node24 -> node26
+  node23 -> node24
+  node27 [label="Operator: 3"]
+  node23 -> node27
+  node28 [label="Literal"]
+  node29 [label="Type: int"]
   node28 -> node29
-  node30 [label="Type: Literal"]
-  node29 -> node30
-  node31 [label="Literal Type: String"]
-  node29 -> node31
-  node32 [label="Value: \"balls\""]
-  node29 -> node32
-  node33 [label="Function Declaration"]
-  node34 [label="Name: test2"]
+  node30 [label="Value: 420"]
+  node28 -> node30
+  node23 -> node28
+  node31 [label="FunctionCall"]
+  node8 -> node31
+  node32 [label="Function: printf"]
+  node31 -> node32
+  node33 [label="Args"]
+  node31 -> node33
+  node34 [label="Literal"]
+  node35 [label="Type: string"]
+  node34 -> node35
+  node36 [label="Value: \"%d\""]
+  node34 -> node36
   node33 -> node34
-  node35 [label="Return Type: Integer"]
-  node33 -> node35
-  node36 [label="Parameters"]
-  node33 -> node36
-  node1 -> node33
-  node37 [label="Body"]
+  node37 [label="FunctionCall"]
   node33 -> node37
-  node38 [label="Statement"]
+  node38 [label="Function: ligma"]
   node37 -> node38
-  node39 [label="Type: Return"]
-  node38 -> node39
-  node40 [label="Return Value"]
-  node38 -> node40
-  node41 [label="Expression"]
+  node39 [label="Args"]
+  node37 -> node39
+  node40 [label="Literal"]
+  node41 [label="Type: string"]
   node40 -> node41
-  node42 [label="Type: Literal"]
-  node41 -> node42
-  node43 [label="Literal Type: Integer"]
-  node41 -> node43
-  node44 [label="Value: 69"]
-  node41 -> node44
+  node42 [label="Value: \"balls\""]
+  node40 -> node42
+  node39 -> node40
+  node43 [label="Function Declaration"]
+  node1 -> node43
+  node44 [label="Name: test2"]
+  node43 -> node44
+  node45 [label="Return Type: int"]
+  node43 -> node45
+  node46 [label="Parameters"]
+  node43 -> node46
+  node47 [label="Body"]
+  node43 -> node47
+  node48 [label="ReturnExpression"]
+  node47 -> node48
+  node49 [label="Literal"]
+  node50 [label="Type: int"]
+  node49 -> node50
+  node51 [label="Value: 69"]
+  node49 -> node51
+  node48 -> node49
+  node52 [label="Function Declaration"]
+  node1 -> node52
+  node53 [label="Name: test3"]
+  node52 -> node53
+  node54 [label="Return Type: string"]
+  node52 -> node54
+  node55 [label="Parameters"]
+  node52 -> node55
+  node56 [label="Body"]
+  node52 -> node56
+  node57 [label="Return Expression"]
+  node56 -> node57
+  node58 [label="Literal"]
+  node59 [label="Type: string"]
+  node58 -> node59
+  node60 [label="Value: \"ligma\""]
+  node58 -> node60
+  node57 -> node58
+  node61 [label="Function Declaration"]
+  node1 -> node61
+  node62 [label="Name: test4"]
+  node61 -> node62
+  node63 [label="Return Type: int"]
+  node61 -> node63
+  node64 [label="Parameters"]
+  node61 -> node64
+  node65 [label="Parameter: int val"]
+  node64 -> node65
+  node66 [label="Body"]
+  node61 -> node66
+  node67 [label="BindExpression"]
+  node66 -> node67
+  node68 [label="Left: var"]
+  node67 -> node68
+  node69 [label="Type: int"]
+  node67 -> node69
+  node70 [label="Right"]
+  node67 -> node70
+  node71 [label="Identifier: val"]
+  node70 -> node71
+  node72 [label="Return Expression"]
+  node66 -> node72
+  node73 [label="Identifier: var"]
+  node72 -> node73
 }

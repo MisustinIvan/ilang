@@ -2,7 +2,7 @@ package ast
 
 import (
 	"fmt"
-	"lang/pkg/lexer"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -11,204 +11,198 @@ type Prog struct {
 	Declarations []FunctionDeclaration
 }
 
-type Identifier struct {
-	Name string
+type FunctionDeclaration struct {
+	Type       Type
+	Name       Identifier
+	Parameters []Parameter
+	Body       BlockExpression
 }
 
 type Type int
 
 const (
-	Void Type = iota
-	Integer
+	Integer Type = iota
 	Float
 	Boolean
 	String
+	Unit
 )
 
-func (t *Type) String() string {
+func (t Type) String() string {
 	s := "UNKNOWN"
-
-	switch *t {
-	case Void:
-		s = "Void"
+	switch t {
 	case Integer:
-		s = "Integer"
+		s = "int"
 	case Float:
-		s = "Float"
+		s = "float"
 	case Boolean:
-		s = "Boolean"
+		s = "bool"
 	case String:
-		s = "String"
+		s = "string"
+	case Unit:
+		s = "unit"
 	}
-
 	return s
 }
 
 var Types = map[string]Type{
-	"void":   Void,
 	"int":    Integer,
 	"float":  Float,
 	"bool":   Boolean,
 	"string": String,
+	"unit":   Unit,
 }
 
-func isInteger(val string) bool {
-	_, err := strconv.ParseInt(val, 10, 64)
-	return err == nil
-}
-
-func isFloat(val string) bool {
-	_, err := strconv.ParseFloat(val, 64)
-	return err == nil
-}
-
-func isBoolean(val string) bool {
-	return val == "true" || val == "false"
-}
-
-func isString(val string) bool {
-	return strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"")
-}
-
-func LiteralType(token lexer.Token) (Type, bool) {
-	if token.Kind != lexer.Literal {
-		return Void, false
-	}
-
-	if isInteger(token.Value) {
-		return Integer, true
-	}
-
-	if isFloat(token.Value) {
-		return Float, true
-	}
-
-	if isBoolean(token.Value) {
-		return Boolean, true
-	}
-
-	if isString(token.Value) {
-		return String, true
-	}
-
-	return Void, false
-}
-
-type FunctionDeclaration struct {
-	Name           Identifier
-	Type           Type
-	ParameterTypes []ParameterType
-	Body           []Statement
-}
-
-type ParameterType struct {
-	Type Type
+type Parameter struct {
 	Name Identifier
+	Type Type
 }
 
-type Statement interface {
-	statement_mark()
-	String() string
-}
-
-type FunctionCallStatement struct {
-	Function Identifier
-	Args     []Expression
-}
-
-func (s *FunctionCallStatement) statement_mark() {}
-func (s *FunctionCallStatement) String() string {
-	r := s.Function.Name
-	r += "("
-	for _, arg := range s.Args {
-		r += arg.String() + ", "
-	}
-	if len(s.Args) > 0 {
-		r = r[:len(r)-3]
-	}
-	r += ")"
-	return r
-}
-
-type AssignmentStatement struct {
-	Left  Identifier
-	Right Expression
-}
-
-func (s *AssignmentStatement) statement_mark() {}
-func (s *AssignmentStatement) String() string {
-	return fmt.Sprintf("%s = %s", s.Left.Name, s.Right.String())
-}
-
-type VariableDeclarationStatement struct {
-	Left  Identifier
-	Type  Type
-	Right Expression
-}
-
-func (s *VariableDeclarationStatement) statement_mark() {}
-func (s *VariableDeclarationStatement) String() string {
-	return fmt.Sprintf("%s %s = %s", s.Type.String(), s.Left.Name, s.Right.String())
-}
-
-type CommentStatement struct {
-	Value string
-}
-
-func (s *CommentStatement) statement_mark() {}
-func (s *CommentStatement) String() string  { return s.Value }
-
-type ReturnStatement struct {
-	Value Expression
-}
-
-func (s *ReturnStatement) statement_mark() {}
-func (s *ReturnStatement) String() string {
-	return "return " + s.Value.String()
+type BlockExpression struct {
+	BasePrimaryExpression
+	Body             []Expression
+	ReturnExpression Expression
 }
 
 type Expression interface {
 	expression_mark()
-	String() string
 }
 
-type EmptyExpression struct{}
+type BaseExpression struct{}
 
-func (e *EmptyExpression) expression_mark() {}
-func (e *EmptyExpression) String() string   { return "empty expression" }
+func (e *BaseExpression) expression_mark() {}
 
-type LiteralExpression struct {
+type BindExpression struct {
+	BaseExpression
+	Left  Identifier
 	Type  Type
+	Right Expression
+}
+
+type ReturnExpression struct {
+	BaseExpression
+	Value Expression
+}
+
+type AssignmentExpression struct {
+	BaseExpression
+	Left  Identifier
+	Right Expression
+}
+
+type BinaryExpression struct {
+	BaseExpression
+	Left     Expression
+	Operator BinaryOperator
+	Right    Expression
+}
+
+type BinaryOperator int
+
+const (
+	Addition BinaryOperator = iota
+	Subtraction
+	Multiplication
+	Division
+	Equals
+	LesserThan
+	GreaterThan
+	LesserOrEqualThan
+	GreaterOrEqualThan
+	LeftShift
+	RightShift
+	LogicAnd
+	LogicOr
+)
+
+var BinaryOperators = map[string]BinaryOperator{
+	"+":  Addition,
+	"-":  Subtraction,
+	"*":  Multiplication,
+	"/":  Division,
+	"==": Equals,
+	"<":  LesserThan,
+	">":  GreaterThan,
+	"<=": LesserOrEqualThan,
+	">=": GreaterOrEqualThan,
+	"<<": LeftShift,
+	">>": RightShift,
+	"&&": LogicAnd,
+	"||": LogicOr,
+}
+
+type PrimaryExpression interface {
+	Expression
+	primary_expression_mark()
+}
+
+type BasePrimaryExpression struct {
+	BaseExpression
+}
+
+func (e *BasePrimaryExpression) primary_expression_mark() {}
+
+type Literal struct {
+	BasePrimaryExpression
+	Value string
+	Type  Type
+}
+
+func isInteger(x string) bool {
+	_, err := strconv.ParseInt(x, 10, 64)
+	return err == nil
+}
+
+func isFloat(x string) bool {
+	_, err := strconv.ParseFloat(x, 10)
+	return err == nil
+}
+
+func isBoolean(x string) bool {
+	return x == "true" || x == "false"
+}
+
+func isString(x string) bool {
+	return strings.HasPrefix(x, "\"") && strings.HasSuffix(x, "\"")
+}
+
+func isUnit(x string) bool {
+	return x == "unit"
+}
+
+func LiteralType(l string) Type {
+	switch {
+	case isInteger(l):
+		return Integer
+	case isFloat(l):
+		return Float
+	case isBoolean(l):
+		return Boolean
+	case isString(l):
+		return String
+	case isUnit(l):
+		return Unit
+	default:
+		fmt.Printf("Literal %s has unknown type\n", l)
+		os.Exit(-1)
+		return Unit
+	}
+}
+
+type Identifier struct {
+	BasePrimaryExpression
 	Value string
 }
 
-func (e *LiteralExpression) expression_mark() {}
-func (e *LiteralExpression) String() string {
-	return e.Value
-}
-
-type IdentifierExpression struct{ Identifier Identifier }
-
-func (e *IdentifierExpression) expression_mark() {}
-func (e *IdentifierExpression) String() string {
-	return e.Identifier.Name
-}
-
-type CallExpression struct {
+type FunctionCall struct {
+	BasePrimaryExpression
 	Function Identifier
-	Args     []Expression
+	Params   []Expression
 }
 
-func (e *CallExpression) expression_mark() {}
-func (e *CallExpression) String() string {
-	r := e.Function.Name
-	r += "("
-	for _, arg := range e.Args {
-		r += arg.String() + ", "
-	}
-	if len(e.Args) > 0 {
-		r = r[:len(e.Args)-3]
-	}
-	r += ")"
-	return r
+// block expression implemented above
+
+type SeparatedExpression struct {
+	BasePrimaryExpression
+	Value Expression
 }

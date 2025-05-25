@@ -43,7 +43,7 @@ func (p *Parser) Next() lexer.Token {
 	return tk
 }
 
-// can exits
+// can exit
 func (p *Parser) MatchCurrent(kind lexer.TokenKind, value string) bool {
 	c := p.Peek()
 	if c == nil {
@@ -87,193 +87,251 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) lexer.Token {
 	return c
 }
 
-func (p *Parser) ParseExpression() ast.Expression {
-	// determine kind of expression
-	// right now we have literal expression, identifier expression and call expression
-	// the easiest is identifier expression, which is just <identifier>
-	// then we have the literal expression, which is just <literal>
-	// then we have the call expression which is just <identifier>'(' [<expression { ',' <expression>}] ')'
+func (p *Parser) ParseBindExpression() *ast.BindExpression {
+	var e_left ast.Identifier
+	var e_type ast.Type
+	var e_right ast.Expression
 
-	// TODO - better handling of identifiing just identifier...
-	if p.MatchNext(lexer.Identifier, "", 0) && (p.MatchNext(lexer.Punctuator, ";", 1) || p.MatchNext(lexer.Punctuator, ")", 1)) {
-		return &ast.IdentifierExpression{
-			Identifier: ast.Identifier{
-				Name: p.Next().Value,
-			},
-		}
+	p.Expect(lexer.Keyword, "let")
+
+	left_tk := p.Expect(lexer.Identifier, "")
+	e_left = ast.Identifier{
+		Value: left_tk.Value,
 	}
 
-	if p.MatchNext(lexer.Literal, "", 0) {
-		tk := p.Next()
-		t, ok := ast.LiteralType(tk)
-		if !ok {
-			fmt.Printf("Unknown literal type at %s\n", tk.Position.String())
-		}
+	p.Expect(lexer.Punctuator, ":")
 
-		return &ast.LiteralExpression{
-			Type:  t,
-			Value: tk.Value,
-		}
-	}
-
-	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Punctuator, "(", 1) {
-		f := p.Next()
-		args := []ast.Expression{}
-
-		// consume the bracket
-		p.Next()
-
-		// parse the args
-		requires_comma := false
-		for !p.MatchCurrent(lexer.Punctuator, ")") {
-			if requires_comma {
-				p.Expect(lexer.Punctuator, ",")
-			} else {
-				requires_comma = true
-			}
-			args = append(args, p.ParseExpression())
-		}
-
-		// consume the bracket
-		p.Next()
-
-		return &ast.CallExpression{
-			Function: ast.Identifier{
-				Name: f.Value,
-			},
-			Args: args,
-		}
-	}
-
-	c := p.Peek()
-	if c == nil {
-		fmt.Printf("Unexpected EOF while parsing expression\n")
-		os.Exit(-1)
-	}
-
-	fmt.Printf("Unknown expression at %s starting with %s\n", c.Position.String(), c.Value)
-	os.Exit(-1)
-	return nil
-}
-
-func (p *Parser) ParseAssignment() *ast.AssignmentStatement {
-	left := p.Expect(lexer.Identifier, "")
-
-	p.Expect(lexer.Operator, "=")
-
-	right := p.ParseExpression()
-
-	s := &ast.AssignmentStatement{
-		Left: ast.Identifier{
-			Name: left.Value,
-		},
-		Right: right,
-	}
-	return s
-}
-
-func (p *Parser) ParseVariableDeclaration() *ast.VariableDeclarationStatement {
-	var_type_tk := p.Expect(lexer.Identifier, "")
-	var_type, ok := ast.Types[var_type_tk.Value]
+	type_tk := p.Expect(lexer.Identifier, "")
+	e_type, ok := ast.Types[type_tk.Value]
 	if !ok {
-		fmt.Printf("Unknown type %s at %s", var_type_tk.Value, var_type_tk.Position.String())
+		fmt.Printf("Unknown type %s at %s\n", type_tk.Value, type_tk.Position.String())
 		os.Exit(-1)
 	}
 
-	var_name_tk := p.Expect(lexer.Identifier, "")
-
 	p.Expect(lexer.Operator, "=")
 
-	right := p.ParseExpression()
+	e_right = p.ParseExpression()
 
-	return &ast.VariableDeclarationStatement{
-		Left: ast.Identifier{
-			Name: var_name_tk.Value,
-		},
-		Type:  var_type,
-		Right: right,
+	return &ast.BindExpression{
+		Left:  e_left,
+		Type:  e_type,
+		Right: e_right,
 	}
 }
 
-func (p *Parser) ParseFunctionCall() *ast.FunctionCallStatement {
-	f := p.Expect(lexer.Identifier, "")
+func (p *Parser) ParseReturnExpression() *ast.ReturnExpression {
+	var e_value ast.Expression
 
+	p.Expect(lexer.Keyword, "return")
+
+	e_value = p.ParseExpression()
+
+	return &ast.ReturnExpression{
+		Value: e_value,
+	}
+}
+
+func (p *Parser) ParseAssignmentExpression() *ast.AssignmentExpression {
+	var e_left ast.Identifier
+	var e_right ast.Expression
+
+	left_tk := p.Expect(lexer.Identifier, "")
+	e_left = ast.Identifier{
+		Value: left_tk.Value,
+	}
+
+	p.Expect(lexer.Operator, "=")
+
+	e_right = p.ParseExpression()
+
+	return &ast.AssignmentExpression{
+		Left:  e_left,
+		Right: e_right,
+	}
+}
+
+func (p *Parser) ParseLiteral() *ast.Literal {
+	l_value := p.Expect(lexer.Literal, "")
+	l_type := ast.LiteralType(l_value.Value)
+
+	return &ast.Literal{
+		Value: l_value.Value,
+		Type:  l_type,
+	}
+}
+
+func (p *Parser) ParseFunctionCall() *ast.FunctionCall {
+	name_tk := p.Expect(lexer.Identifier, "")
+	var c_params []ast.Expression
+
+	// consume bracket
 	p.Expect(lexer.Punctuator, "(")
 
-	args := []ast.Expression{}
-
-	requires_comma := false
-	for !p.MatchCurrent(lexer.Punctuator, ")") {
-		if requires_comma {
+	needs_comma := false
+	for !p.MatchNext(lexer.Punctuator, ")", 0) {
+		if needs_comma {
 			p.Expect(lexer.Punctuator, ",")
 		} else {
-			requires_comma = true
+			needs_comma = true
 		}
-		args = append(args, p.ParseExpression())
+
+		c_params = append(c_params, p.ParseExpression())
 	}
 
-	// consume the bracket
+	// consume bracket
 	p.Expect(lexer.Punctuator, ")")
 
-	return &ast.FunctionCallStatement{
+	return &ast.FunctionCall{
 		Function: ast.Identifier{
-			Name: f.Value,
+			Value: name_tk.Value,
 		},
-		Args: args,
+		Params: c_params,
 	}
 }
 
-func (p *Parser) ParseReturn() *ast.ReturnStatement {
-	// consume the "return"
-	p.Next()
-	var e ast.Expression
-
-	if p.MatchNext(lexer.Punctuator, ";", 0) {
-		e = &ast.EmptyExpression{}
-	} else {
-		e = p.ParseExpression()
-	}
-
-	return &ast.ReturnStatement{
-		Value: e,
+func (p *Parser) ParseIdentifier() *ast.Identifier {
+	id_tk := p.Expect(lexer.Identifier, "")
+	return &ast.Identifier{
+		Value: id_tk.Value,
 	}
 }
 
-func (p *Parser) ParseStatement() ast.Statement {
-	// determine kind of statement
-	// right now we have assignment, variable declaration and function call
-	// assignment is the easiest, just an <identifier> '=' <expression>';'
-	// then we have function call which is <identifier> '(' [<expression> { ',' <expression> } ] ')'
-	// then we have variable declaration which is <type> <identifier> '=' <expression>
-	// then we have return statement which is 'return' <expression>
+func (p *Parser) ParseSeparatedExpression() *ast.SeparatedExpression {
+	var e_value ast.Expression
+	p.Expect(lexer.Punctuator, "(")
 
-	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Operator, "=", 1) {
-		return p.ParseAssignment()
+	e_value = p.ParseExpression()
+
+	p.Expect(lexer.Punctuator, ")")
+
+	return &ast.SeparatedExpression{
+		Value: e_value,
+	}
+}
+
+func (p *Parser) ParsePrimaryExpression() ast.PrimaryExpression {
+	// according to grammar:
+	// pexpr : literal
+	//       | ident
+	//       | call_expr
+	//       | block_expr
+	//       | sep_expr
+
+	// parse literal
+	if p.MatchNext(lexer.Literal, "", 0) {
+		return p.ParseLiteral()
 	}
 
-	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Identifier, "", 1) && p.MatchNext(lexer.Operator, "", 2) {
-		return p.ParseVariableDeclaration()
-	}
-
+	// parse function call
 	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Punctuator, "(", 1) {
 		return p.ParseFunctionCall()
 	}
 
-	if p.MatchNext(lexer.Keyword, "return", 0) {
-		return p.ParseReturn()
+	// parse identifier
+	if p.MatchNext(lexer.Identifier, "", 0) {
+		return p.ParseIdentifier()
 	}
 
-	c := p.Next()
-	return &ast.CommentStatement{
-		Value: c.Value,
+	// parse block expression
+	if p.MatchNext(lexer.Punctuator, "{", 0) {
+		return p.ParseBlockExpression()
+	}
+
+	// parse separated expression
+	if p.MatchNext(lexer.Punctuator, "(", 0) {
+		return p.ParseSeparatedExpression()
+	}
+
+	return &ast.BasePrimaryExpression{}
+}
+
+// returns either a primary or a binary expression as defined in the grammar
+func (p *Parser) ParseBinaryExpression() ast.Expression {
+	var e_left ast.Expression
+
+	e_left = p.ParsePrimaryExpression()
+
+	isCurrentBinop := func() bool {
+		_, ok := ast.BinaryOperators[p.Peek().Value]
+		return ok && p.MatchNext(lexer.Operator, "", 0)
+	}
+
+	for isCurrentBinop() {
+		op := ast.BinaryOperators[p.Next().Value]
+		e_right := p.ParseExpression()
+		e_left = &ast.BinaryExpression{
+			Left:     e_left,
+			Operator: op,
+			Right:    e_right,
+		}
+	}
+
+	return e_left
+}
+
+func (p *Parser) ParseExpression() ast.Expression {
+	// according to grammar:
+	// expr : bind_expr
+	//      | return_expr
+	//      | assg_expr
+	//      | bin_expr
+
+	// parse bind expression
+	if p.MatchNext(lexer.Keyword, "let", 0) {
+		return p.ParseBindExpression()
+	}
+
+	// parse return expression
+	if p.MatchNext(lexer.Keyword, "return", 0) {
+		return p.ParseReturnExpression()
+	}
+
+	// parse assignment expression
+	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Operator, "=", 1) {
+		return p.ParseAssignmentExpression()
+	}
+
+	// parse binary or primary expression
+	return p.ParseBinaryExpression()
+}
+
+func (p *Parser) ParseBlockExpression() *ast.BlockExpression {
+	var e_body []ast.Expression
+	var e_return_expression ast.Expression
+
+	p.Expect(lexer.Punctuator, "{")
+
+	has_return_expression := false
+	for !p.MatchNext(lexer.Punctuator, "}", 0) {
+		expression := p.ParseExpression()
+
+		if !p.MatchNext(lexer.Punctuator, ";", 0) {
+			e_return_expression = expression
+			has_return_expression = true
+		} else {
+			if has_return_expression {
+				fmt.Printf("Unexpected expression at %s\n", p.Peek().Position.String())
+				os.Exit(-1)
+			}
+			e_body = append(e_body, expression)
+			p.Next()
+		}
+	}
+
+	// consume curly brace
+	p.Expect(lexer.Punctuator, "}")
+
+	return &ast.BlockExpression{
+		Body:             e_body,
+		ReturnExpression: e_return_expression,
 	}
 }
 
 func (p *Parser) ParseFunctionDeclaration() ast.FunctionDeclaration {
-	f_name := ast.Identifier{}
+	var f_name ast.Identifier
 	var f_type ast.Type
-	f_params := []ast.ParameterType{}
-	f_body := []ast.Statement{}
+	var f_params []ast.Parameter
+	var f_body ast.BlockExpression
 
 	// parse function type
 	type_tk := p.Expect(lexer.Identifier, "")
@@ -285,7 +343,7 @@ func (p *Parser) ParseFunctionDeclaration() ast.FunctionDeclaration {
 
 	name_tk := p.Expect(lexer.Identifier, "")
 	f_name = ast.Identifier{
-		Name: name_tk.Value,
+		Value: name_tk.Value,
 	}
 
 	p.Expect(lexer.Punctuator, "(")
@@ -322,29 +380,23 @@ func (p *Parser) ParseFunctionDeclaration() ast.FunctionDeclaration {
 
 		param_names[param_name_tk.Value] = true
 
-		f_params = append(f_params, ast.ParameterType{
+		f_params = append(f_params, ast.Parameter{
 			Type: param_type,
 			Name: ast.Identifier{
-				Name: param_name_tk.Value,
+				Value: param_name_tk.Value,
 			},
 		})
 	}
 
 	p.Expect(lexer.Punctuator, ")")
-	p.Expect(lexer.Punctuator, "{")
 
-	for !p.MatchCurrent(lexer.Punctuator, "}") {
-		f_body = append(f_body, p.ParseStatement())
-		p.Expect(lexer.Punctuator, ";")
-	}
-
-	p.Next()
+	f_body = *p.ParseBlockExpression()
 
 	return ast.FunctionDeclaration{
-		Name:           f_name,
-		Type:           f_type,
-		ParameterTypes: f_params,
-		Body:           f_body,
+		Name:       f_name,
+		Type:       f_type,
+		Parameters: f_params,
+		Body:       f_body,
 	}
 }
 

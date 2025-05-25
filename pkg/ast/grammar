@@ -4,22 +4,32 @@
 - foo | bar means foo or bar
 - 'something' means a literal with the value 'something'
 
-prog : { fun_decl }
+prog         : { fun_decl }
 
-ident : { '*' }
-type : { '*' }
+fun_decl     : type ident '(' parm_types ')' block_expr
+parm_types   : [ type ident { ',' type ident } ]
 
-fun_decl : type ident '(' parm_types ')' '{' body '}'
-parm_types : [ type ident { ',' type id } ]
-body : { stmt }
-stmt : [assg | call_stmt | var_decl | return_stmt] ';'
+block_expr  : '{' { expr ';' } [ expr ] '}'
 
-var_decl : type id '=' expr
-assg : id '=' expr
-call_stmt : id '(' [ expr { ',' expr }] ')'
-return_stmt : 'return' expr
+expr        : bind_expr
+            | return_expr
+            | assg_expr
+            | bin_expr
 
-expr : literal | id | call_expr
+bind_expr   : 'let' ident ':' type '=' expr
+return_expr : 'return' expr
+assg_expr   : ident '=' expr
+bin_expr    : pexpr { binop pexpr }
 
-call_expr : id '(' [ expr { ',' expr }] ')'
-literal : '*'
+pexpr       : literal
+            | ident
+            | call_expr
+            | block_expr
+            | sep_expr
+
+sep_expr    : '(' expr ')'
+call_expr   : ident '(' [ expr { ',' expr } ] ')'
+type        : '*'
+ident       : '*'
+literal     : '*'
+binop       : '+' | '-' | '*' | '/' | '==' | '<' | '>' | '<=' | '>=' | '<<' | '>>' | '&&' | '||'

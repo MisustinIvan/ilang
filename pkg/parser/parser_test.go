@@ -10,7 +10,7 @@ import (
 
 func TestParserParseFunDecl(t *testing.T) {
 	const test_program = `
-void test(bool a, int b) {
+unit test(bool a, int b) {
     c = 10;
     printf("%d", c);
 }
@@ -26,27 +26,27 @@ void test(bool a, int b) {
 	p := parser.NewParser(l.Tokens())
 
 	decl := p.ParseFunctionDeclaration()
-	if decl.Type != ast.Void {
+	if decl.Type != ast.Unit {
 		t.Fatalf("Expected type Void, got %s\n", decl.Type.String())
 	}
 
-	if decl.Name.Name != "test" {
-		t.Fatalf("Expected function name test, got %s\n", decl.Name.Name)
+	if decl.Name.Value != "test" {
+		t.Fatalf("Expected function name test, got %s\n", decl.Name.Value)
 	}
 
-	if len(decl.ParameterTypes) != 2 {
-		t.Fatalf("Expected 1 parameter, got %d\n", len(decl.ParameterTypes))
+	if len(decl.Parameters) != 2 {
+		t.Fatalf("Expected 1 parameter, got %d\n", len(decl.Parameters))
 	}
 
-	if decl.ParameterTypes[0].Name.Name != "a" {
-		t.Fatalf("Expected parameter name b, got %s\n", decl.ParameterTypes[0].Name.Name)
+	if decl.Parameters[0].Name.Value != "a" {
+		t.Fatalf("Expected parameter name b, got %s\n", decl.Parameters[0].Name.Value)
 	}
 
-	if decl.ParameterTypes[0].Type != ast.Boolean {
-		t.Fatalf("Expected parameter type Boolean, got %s\n", decl.ParameterTypes[0].Type.String())
+	if decl.Parameters[0].Type != ast.Boolean {
+		t.Fatalf("Expected parameter type Boolean, got %s\n", decl.Parameters[0].Type.String())
 	}
 
-	fmt.Printf("decl.Body: %v\n", decl.Body[0])
+	fmt.Printf("decl.Body: %v\n", decl.Body.Body[0])
 
 	t.Fail()
 }
