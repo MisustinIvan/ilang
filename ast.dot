@@ -1,0 +1,64 @@
+digraph AST {
+  node [shape=box];
+  node1 [label="Function Declaration"]
+  node2 [label="Name: test"]
+  node1 -> node2
+  node3 [label="Return Type: Void"]
+  node1 -> node3
+  node4 [label="Parameters"]
+  node1 -> node4
+  node5 [label="Parameter: Boolean a"]
+  node4 -> node5
+  node6 [label="Parameter: Integer b"]
+  node4 -> node6
+  node7 [label="Body"]
+  node1 -> node7
+  node8 [label="Statement"]
+  node7 -> node8
+  node9 [label="Type: Assignment"]
+  node8 -> node9
+  node10 [label="Left: c"]
+  node8 -> node10
+  node11 [label="Right"]
+  node8 -> node11
+  node12 [label="Expression"]
+  node11 -> node12
+  node13 [label="Type: Literal"]
+  node12 -> node13
+  node14 [label="Literal Type: Integer"]
+  node12 -> node14
+  node15 [label="Value: 10"]
+  node12 -> node15
+  node16 [label="Statement"]
+  node7 -> node16
+  node17 [label="Type: Function Call"]
+  node16 -> node17
+  node18 [label="Function name: printf"]
+  node16 -> node18
+  node19 [label="Args"]
+  node16 -> node19
+  node20 [label="Expression"]
+  node19 -> node20
+  node21 [label="Type: Literal"]
+  node20 -> node21
+  node22 [label="Literal Type: String"]
+  node20 -> node22
+  node23 [label="Value: \"%d\""]
+  node20 -> node23
+  node24 [label="Expression"]
+  node19 -> node24
+  node25 [label="Type: Function Call"]
+  node24 -> node25
+  node26 [label="Function name: ligma"]
+  node24 -> node26
+  node27 [label="Args"]
+  node24 -> node27
+  node28 [label="Expression"]
+  node27 -> node28
+  node29 [label="Type: Literal"]
+  node28 -> node29
+  node30 [label="Literal Type: String"]
+  node28 -> node30
+  node31 [label="Value: \"balls\""]
+  node28 -> node31
+}

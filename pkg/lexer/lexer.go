@@ -1,0 +1,263 @@
+package lexer
+
+import (
+	"fmt"
+)
+
+type TokenKind int
+
+func (k *TokenKind) String() string {
+	s := "UNKNOWN"
+
+	switch *k {
+	case Literal:
+		s = "Literal"
+	case Keyword:
+		s = "Keyword"
+	case Operator:
+		s = "Operator"
+	case Identifier:
+		s = "Identifier"
+	case Punctuator:
+		s = "Punctuator"
+	}
+
+	return s
+}
+
+const (
+	Literal TokenKind = iota
+	Keyword
+	Operator
+	Identifier
+	Punctuator
+)
+
+type TokenPosition struct {
+	Line   int
+	Column int
+}
+
+func (p *TokenPosition) String() string {
+	return fmt.Sprintf("line %d column %d ", p.Line, p.Column)
+}
+
+type Token struct {
+	Kind     TokenKind
+	Position TokenPosition
+	Value    string
+}
+
+func (t *Token) String() string {
+	return fmt.Sprintf("<%s> <%s>", t.Kind.String(), t.Value)
+}
+
+type Lexer struct {
+	input  string
+	head   int
+	output []Token
+}
+
+func NewLexer(input string) Lexer {
+	return Lexer{
+		input:  input,
+		head:   0,
+		output: []Token{},
+	}
+}
+
+func isWhitespace(x byte) bool {
+	return x == ' ' || x == '\n' || x == '\t'
+}
+
+func isDigit(x byte) bool {
+	return x >= '0' && x <= '9'
+}
+
+func isLetter(x byte) bool {
+	return (x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z') || x == '_'
+}
+
+type UnexpectedTokenError struct {
+	Token string
+}
+
+func (e *UnexpectedTokenError) Error() string {
+	return fmt.Sprintf("Unexpected token: \"%s\" []byte%v", e.Token, []byte(e.Token))
+}
+func NewUnexpectedTokenError(token string) error {
+	return &UnexpectedTokenError{Token: token}
+}
+
+type UnterminatedStringLiteralError struct {
+	literal string
+}
+
+func (e *UnterminatedStringLiteralError) Error() string {
+	return fmt.Sprintf("Unterminated string literal: \"%s\"", e.literal)
+}
+func NewUnterminatedStringLiteral(literal string) error {
+	return &UnterminatedStringLiteralError{literal: literal}
+}
+
+func longestMatch(token string, valid map[string]bool) (string, int) {
+	match := ""
+	length := 0
+	for i := 1; i <= len(token); i++ {
+		candidate := token[:i]
+		if valid[candidate] {
+			match = candidate
+			length = i
+		}
+	}
+
+	return match, length
+}
+
+func (l *Lexer) Lex() error {
+	line := 0
+	column := -1
+	for l.head < len(l.input) {
+		column++
+		c := l.input[l.head]
+
+		// whitespaces
+		if isWhitespace(c) {
+			l.head++
+			if c == '\n' {
+				line++
+				column = -1
+			}
+			continue
+		}
+
+		// integer literals
+		if isDigit(c) {
+			start := l.head
+			start_column := column
+			for l.head < len(l.input) && isDigit(l.input[l.head]) {
+				l.head++
+				column++
+			}
+			value := l.input[start:l.head]
+			l.output = append(l.output, Token{
+				Kind:  Literal,
+				Value: value,
+				Position: TokenPosition{
+					Line:   line,
+					Column: start_column,
+				},
+			})
+			continue
+		}
+
+		// string literals
+		if c == '"' {
+			start := l.head
+			start_column := column
+			l.head++ // prevent infinite loop
+			for l.head < len(l.input) && l.input[l.head] != '"' {
+				l.head++
+				column++
+			}
+			l.head++ //include end quote
+			if l.head >= len(l.input) {
+				return NewUnterminatedStringLiteral(l.input[:start])
+			}
+			value := l.input[start:l.head]
+			l.output = append(l.output, Token{
+				Kind:  Literal,
+				Value: value,
+				Position: TokenPosition{
+					Line:   line,
+					Column: start_column,
+				},
+			})
+			continue
+		}
+
+		// keywords and identifiers (and two literals for booleans)
+		if isLetter(c) {
+			start := l.head
+			start_column := column
+			for l.head < len(l.input) && (isLetter(l.input[l.head]) || isDigit(l.input[l.head])) {
+				l.head++
+				column++
+			}
+			value := l.input[start:l.head]
+			kind := Identifier
+			if KeywordTokens[value] {
+				kind = Keyword
+			}
+
+			// check for booleans
+
+			if value == "true" || value == "false" {
+				kind = Literal
+			}
+
+			l.output = append(l.output, Token{
+				Kind:  kind,
+				Value: value,
+				Position: TokenPosition{
+					Line:   line,
+					Column: start_column,
+				},
+			})
+			continue
+		}
+
+		// punctuators and operators
+		{
+			start := l.head
+			start_column := column
+			for l.head < len(l.input) && !isDigit(l.input[l.head]) && !isLetter(l.input[l.head]) && !isWhitespace(l.input[l.head]) {
+				l.head++
+				column++
+			}
+			value := l.input[start:l.head]
+			var kind TokenKind
+
+			operator_match, operator_length := longestMatch(value, OperatorTokens)
+			punctuator_match, punctuator_length := longestMatch(value, PunctuatorTokens)
+
+			if operator_length == 0 && punctuator_length == 0 {
+				return NewUnexpectedTokenError(value)
+			}
+
+			if operator_length > punctuator_length {
+				l.head -= len(value) - len(operator_match)
+				column -= len(value) - len(operator_match)
+				value = operator_match
+				kind = Operator
+			} else {
+				l.head -= len(value) - len(punctuator_match)
+				column -= len(value) - len(punctuator_match)
+				value = punctuator_match
+				kind = Punctuator
+			}
+
+			l.output = append(l.output, Token{
+				Kind:  kind,
+				Value: value,
+				Position: TokenPosition{
+					Line:   line,
+					Column: start_column,
+				},
+			})
+			continue
+		}
+	}
+
+	return nil
+}
+
+func (l *Lexer) Tokens() []Token {
+	return l.output
+}
+
+func (l *Lexer) PrintTokens() {
+	for _, t := range l.output {
+		fmt.Println(t.String())
+	}
+}

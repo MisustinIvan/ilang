@@ -1,0 +1,24 @@
+*Cheatsheet*
+- { 'something' } means a variable amount of something, i.e 0...inf of something
+- [ 'something' ] means optional something, i.e either nothing or 'something'
+- foo | bar means foo or bar
+- 'something' means a literal with the value 'something'
+
+prog : { fun_decl }
+
+ident : { '*' }
+type : { '*' }
+
+fun_decl : type ident '(' parm_types ')' '{' body '}'
+parm_types : [ type ident { ',' type id } ]
+body : { stmt }
+stmt : assg | call_stmt | var_decl
+
+var_decl : type id '=' expr ';'
+assg : id '=' expr ';'
+call_stmt : id '(' [ expr { ',' expr }] ')' ';'
+
+expr : literal | id | call_expr
+
+call_expr : id '(' [ expr { ',' expr }] ')'
+literal : '*'
