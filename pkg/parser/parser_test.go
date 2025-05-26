@@ -1,7 +1,6 @@
 package parser_test
 
 import (
-	"fmt"
 	"lang/pkg/ast"
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
@@ -45,16 +44,12 @@ unit test(bool a, int b) {
 	if decl.Parameters[0].Type != ast.Boolean {
 		t.Fatalf("Expected parameter type Boolean, got %s\n", decl.Parameters[0].Type.String())
 	}
-
-	fmt.Printf("decl.Body: %v\n", decl.Body.Body[0])
-
-	t.Fail()
 }
 
 func TestParserExpect(t *testing.T) {
 	const test_program = `
 void test(int b) {
-    int a = 10;
+    int a == 10;
     printf("%d", a);
 }
 `
@@ -76,7 +71,7 @@ void test(int b) {
 	p.Expect(lexer.Punctuator, "{")
 	p.Expect(lexer.Identifier, "int")
 	p.Expect(lexer.Identifier, "a")
-	p.Expect(lexer.Operator, "=")
+	p.Expect(lexer.Operator, "==")
 	p.Expect(lexer.Literal, "10")
 	p.Expect(lexer.Punctuator, ";")
 	p.Expect(lexer.Identifier, "printf")

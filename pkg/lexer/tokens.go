@@ -16,6 +16,8 @@ var PunctuatorTokens = map[string]bool{
 var KeywordTokens = map[string]bool{
 	"return": true,
 	"let":    true,
+	"if":     true,
+	"else":   true,
 }
 
 var OperatorTokens = map[string]bool{
@@ -24,6 +26,11 @@ var OperatorTokens = map[string]bool{
 	"-":  true,
 	"*":  true,
 	"/":  true,
+	"==": true,
+	"<":  true,
+	">":  true,
+	"<=": true,
+	">=": true,
 	"<<": true,
 	">>": true,
 	"&&": true,

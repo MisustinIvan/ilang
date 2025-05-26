@@ -1,17 +1,10 @@
-unit test(bool a, int b) {
-    c = 10 + 2 * (69 / 420);
-    printf("%d", ligma("balls"));
-}
-
-int test2() {
-    return 69;
-}
-
-string test3() {
-    "ligma"
-}
-
-int test4(int val) {
-    let var : int = val;
-    var
+int magic(int x, int n) {
+    {
+        "balls"
+    };
+    if x < 10 {
+        x + n
+    } else {
+        x - n
+    }
 }

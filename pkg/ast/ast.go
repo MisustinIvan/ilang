@@ -60,8 +60,8 @@ type Parameter struct {
 
 type BlockExpression struct {
 	BasePrimaryExpression
-	Body             []Expression
-	ReturnExpression Expression
+	Body                     []Expression
+	ImplicitReturnExpression Expression
 }
 
 type Expression interface {
@@ -104,7 +104,7 @@ const (
 	Subtraction
 	Multiplication
 	Division
-	Equals
+	Equality
 	LesserThan
 	GreaterThan
 	LesserOrEqualThan
@@ -115,12 +115,46 @@ const (
 	LogicOr
 )
 
+func (o BinaryOperator) String() string {
+	s := "UNKNOWN"
+	switch o {
+	case Addition:
+		s = "Addition"
+	case Subtraction:
+		s = "Subtraction"
+	case Multiplication:
+		s = "Multiplication"
+	case Division:
+		s = "Division"
+	case Equality:
+		s = "Equality"
+	case LesserThan:
+		s = "LesserThan"
+	case GreaterThan:
+		s = "GreaterThan"
+	case LesserOrEqualThan:
+		s = "LesserOrEqualThan"
+	case GreaterOrEqualThan:
+		s = "GreaterOrEqualThan"
+	case LeftShift:
+		s = "LeftShift"
+	case RightShift:
+		s = "RightShift"
+	case LogicAnd:
+		s = "LogicAnd"
+	case LogicOr:
+		s = "LogicOr"
+	}
+
+	return s
+}
+
 var BinaryOperators = map[string]BinaryOperator{
 	"+":  Addition,
 	"-":  Subtraction,
 	"*":  Multiplication,
 	"/":  Division,
-	"==": Equals,
+	"==": Equality,
 	"<":  LesserThan,
 	">":  GreaterThan,
 	"<=": LesserOrEqualThan,
@@ -129,6 +163,13 @@ var BinaryOperators = map[string]BinaryOperator{
 	">>": RightShift,
 	"&&": LogicAnd,
 	"||": LogicOr,
+}
+
+type ConditionalExpression struct {
+	PrimaryExpression
+	Condition Expression
+	IfBody    BlockExpression
+	ElseBody  BlockExpression
 }
 
 type PrimaryExpression interface {

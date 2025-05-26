@@ -20,12 +20,14 @@ bind_expr   : 'let' ident ':' type '=' expr
 return_expr : 'return' expr
 assg_expr   : ident '=' expr
 bin_expr    : pexpr { binop pexpr }
+con_expr    : 'if' expr block_expr { 'else' block_expr }
 
 pexpr       : literal
             | ident
             | call_expr
             | block_expr
             | sep_expr
+            | con_expr
 
 sep_expr    : '(' expr ')'
 call_expr   : ident '(' [ expr { ',' expr } ] ')'

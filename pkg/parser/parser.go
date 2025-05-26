@@ -209,6 +209,32 @@ func (p *Parser) ParseSeparatedExpression() *ast.SeparatedExpression {
 	}
 }
 
+func (p *Parser) ParseConditionalExpression() *ast.ConditionalExpression {
+	var e_condition ast.Expression
+	var e_if_body ast.BlockExpression
+	var e_else_body ast.BlockExpression = ast.BlockExpression{
+		Body:                     []ast.Expression{},
+		ImplicitReturnExpression: nil,
+	}
+
+	p.Expect(lexer.Keyword, "if")
+
+	e_condition = p.ParseExpression()
+	e_if_body = *p.ParseBlockExpression()
+
+	if p.MatchNext(lexer.Keyword, "else", 0) {
+		// consume 'else'
+		p.Next()
+		e_else_body = *p.ParseBlockExpression()
+	}
+
+	return &ast.ConditionalExpression{
+		Condition: e_condition,
+		IfBody:    e_if_body,
+		ElseBody:  e_else_body,
+	}
+}
+
 func (p *Parser) ParsePrimaryExpression() ast.PrimaryExpression {
 	// according to grammar:
 	// pexpr : literal
@@ -216,6 +242,7 @@ func (p *Parser) ParsePrimaryExpression() ast.PrimaryExpression {
 	//       | call_expr
 	//       | block_expr
 	//       | sep_expr
+	//       | con_expr
 
 	// parse literal
 	if p.MatchNext(lexer.Literal, "", 0) {
@@ -240,6 +267,11 @@ func (p *Parser) ParsePrimaryExpression() ast.PrimaryExpression {
 	// parse separated expression
 	if p.MatchNext(lexer.Punctuator, "(", 0) {
 		return p.ParseSeparatedExpression()
+	}
+
+	// parse conditional expression
+	if p.MatchNext(lexer.Keyword, "if", 0) {
+		return p.ParseConditionalExpression()
 	}
 
 	return &ast.BasePrimaryExpression{}
@@ -303,16 +335,17 @@ func (p *Parser) ParseBlockExpression() *ast.BlockExpression {
 
 	has_return_expression := false
 	for !p.MatchNext(lexer.Punctuator, "}", 0) {
+		expr_start := p.Peek().Position
 		expression := p.ParseExpression()
 
 		if !p.MatchNext(lexer.Punctuator, ";", 0) {
+			if has_return_expression {
+				fmt.Printf("Unexpected expression at %s\n", expr_start.String())
+				os.Exit(-1)
+			}
 			e_return_expression = expression
 			has_return_expression = true
 		} else {
-			if has_return_expression {
-				fmt.Printf("Unexpected expression at %s\n", p.Peek().Position.String())
-				os.Exit(-1)
-			}
 			e_body = append(e_body, expression)
 			p.Next()
 		}
@@ -322,8 +355,8 @@ func (p *Parser) ParseBlockExpression() *ast.BlockExpression {
 	p.Expect(lexer.Punctuator, "}")
 
 	return &ast.BlockExpression{
-		Body:             e_body,
-		ReturnExpression: e_return_expression,
+		Body:                     e_body,
+		ImplicitReturnExpression: e_return_expression,
 	}
 }
 
