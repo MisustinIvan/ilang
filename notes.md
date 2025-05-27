@@ -7,6 +7,6 @@
 - [x] before popping the scope, go back and modify the ast for identifiers to refer to scope local variables
 ## third pass
 - [x] calculate stack offset
-- [ ] store strings in the data section and calculate their offset
+- [x] store string literals to be referenced later by a unique identifier
 ## third pass
 - [ ] TODO: do the rest...

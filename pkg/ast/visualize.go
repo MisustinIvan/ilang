@@ -126,13 +126,19 @@ func writeExpression(expr Expression, parent string, w io.Writer) {
 	case *Literal:
 		id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Literal",color="green"]`+"\n", id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
 		typeID := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", typeID, e.Type.String())
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeID)
 		valID := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Value: %s"]`+"\n", valID, escape(e.Value))
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, valID)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		if e.LookupValue != "" {
+			lookupID := nextNodeID()
+			fmt.Fprintf(w, `  %s [label="Lookup Value: %s"]`+"\n", lookupID, e.LookupValue)
+			fmt.Fprintf(w, `  %s -> %s`+"\n", id, lookupID)
+		}
+
 	case *Identifier:
 		id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Identifier: %s",color="lightblue"]`+"\n", id, e.Value)

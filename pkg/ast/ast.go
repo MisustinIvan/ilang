@@ -200,8 +200,9 @@ func (e *BasePrimaryExpression) primary_expression_mark() {}
 
 type Literal struct {
 	BasePrimaryExpression
-	Value string
-	Type  Type
+	Value       string
+	Type        Type
+	LookupValue string
 }
 
 func isInteger(x string) bool {

@@ -1,10 +1,5 @@
-int test() {
-    return 33;
-}
-
+#include <stdio.h>
 int main() {
-    int a = 69;
-    int b = 420;
-    a = test();
-    return a;
+    const char *a = "test";
+    printf(a);
 }

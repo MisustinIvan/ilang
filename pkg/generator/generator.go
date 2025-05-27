@@ -10,6 +10,21 @@ type Generator struct {
 	Program      ast.Prog
 	Output       string
 	Declarations map[string]FunctionContext
+	// constants
+	Constants       map[string]ConstantContext
+	constantCounter int
+}
+
+type ConstantContext struct {
+	Type        ast.Type
+	Value       string
+	LookupValue string
+}
+
+func (g *Generator) NewUniqueConstantId() string {
+	c := g.constantCounter
+	g.constantCounter++
+	return fmt.Sprintf("constant#%d", c)
 }
 
 func NewGenerator(prog ast.Prog) Generator {
@@ -17,6 +32,7 @@ func NewGenerator(prog ast.Prog) Generator {
 		Program:      prog,
 		Output:       "",
 		Declarations: map[string]FunctionContext{},
+		Constants:    map[string]ConstantContext{},
 	}
 }
 
@@ -110,6 +126,17 @@ type LocalVariableContext struct {
 	Type     ast.Type
 	Index    int
 	UniqueId string
+}
+
+func (g *Generator) AllocateConstant(value string, v_type ast.Type) ConstantContext {
+	id := g.NewUniqueConstantId()
+	ctx := ConstantContext{
+		Type:        v_type,
+		Value:       value,
+		LookupValue: id,
+	}
+	g.Constants[id] = ctx
+	return ctx
 }
 
 func (g *Generator) RegisterGlobalFunction(f ast.FunctionDeclaration) {
@@ -216,6 +243,11 @@ func (g *Generator) FindLocals(expr ast.Expression, ctx *FunctionContext) {
 	case *ast.SeparatedExpression:
 		g.FindLocals(e.Value, ctx)
 	case *ast.Literal:
+		if e.Type == ast.String {
+			fmt.Printf("allocated string\n")
+			c := g.AllocateConstant(e.Value, ast.String)
+			e.LookupValue = c.LookupValue
+		}
 	case *ast.Identifier:
 	default:
 		fmt.Printf("Unknown expression type\n")
