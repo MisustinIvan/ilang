@@ -28,6 +28,21 @@ const (
 	Unit
 )
 
+func (t Type) Size() int {
+	switch t {
+	case Integer:
+		return 4
+	case Float:
+		return 4
+	case Boolean:
+		return 4
+	case String:
+		return 0
+	default:
+		return 0
+	}
+}
+
 func (t Type) String() string {
 	s := "UNKNOWN"
 	switch t {
@@ -232,7 +247,8 @@ func LiteralType(l string) Type {
 
 type Identifier struct {
 	BasePrimaryExpression
-	Value string
+	LookupValue string
+	Value       string
 }
 
 type FunctionCall struct {

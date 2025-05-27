@@ -84,6 +84,12 @@ func writeExpression(expr Expression, parent string, w io.Writer) {
 		fmt.Fprintf(w, `  %s [label="Left: %s"]`+"\n", leftID, e.Left.Value)
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, leftID)
 
+		if e.Left.LookupValue != "" {
+			lookupID := nextNodeID()
+			fmt.Fprintf(w, `  %s [label="Lookup Value: %s"]`+"\n", lookupID, e.Left.LookupValue)
+			fmt.Fprintf(w, `  %s -> %s`+"\n", leftID, lookupID)
+		}
+
 		typeID := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", typeID, e.Type.String())
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeID)
@@ -131,6 +137,11 @@ func writeExpression(expr Expression, parent string, w io.Writer) {
 		id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Identifier: %s",color="lightblue"]`+"\n", id, e.Value)
 		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		if e.LookupValue != "" {
+			lookup_id := nextNodeID()
+			fmt.Fprintf(w, `  %s [label="Lookup Value: %s"]`+"\n", lookup_id, e.LookupValue)
+			fmt.Fprintf(w, `  %s -> %s`+"\n", id, lookup_id)
+		}
 	case *FunctionCall:
 		id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="FunctionCall",color="red"]`+"\n", id)

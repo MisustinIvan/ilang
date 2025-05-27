@@ -1,10 +1,13 @@
-int magic(int x, int n) {
-    {
-        "balls"
+int main() {
+    let a : int = 69;
+    let b : int = 420;
+    if true {
+        let a : string = "test";
+        a
     };
-    if x < 10 {
-        x + n
-    } else {
-        x - n
-    }
+    if true {
+        let b : bool = false;
+        b
+    };
+    a
 }

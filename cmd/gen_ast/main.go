@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"lang/pkg/ast"
+	"lang/pkg/generator"
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
 	"os"
@@ -51,6 +52,8 @@ func main() {
 
 	p := parser.NewParser(l.Tokens())
 	prog := p.Parse()
+	g := generator.NewGenerator(prog)
+	prog = g.Generate()
 
 	ast.ExportASTToGraphviz(&prog, output_file)
 
