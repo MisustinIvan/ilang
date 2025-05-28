@@ -11,3 +11,10 @@ int main() {
     };
     a
 }
+
+int test(int a) {
+    if true {
+        let a : int = 10;
+    };
+    a
+}

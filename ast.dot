@@ -13,116 +13,54 @@ digraph AST {
   node2 -> node6
   node7 [label="BlockExpression",color="purple"]
   node6 -> node7
-  node8 [label="BindExpression",color="orange"]
+  node8 [label="Implicit Return Expression",color="lightgreen"]
   node7 -> node8
-  node9 [label="Left: a"]
+  node9 [label="ConditionalExpression",color="red"]
   node8 -> node9
-  node10 [label="Lookup Value: a#0"]
+  node10 [label="Condition"]
   node9 -> node10
-  node11 [label="Type: int"]
-  node8 -> node11
-  node12 [label="Right"]
-  node8 -> node12
-  node13 [label="Literal",color="green"]
+  node11 [label="BlockExpression",color="purple"]
+  node10 -> node11
+  node12 [label="Implicit Return Expression",color="lightgreen"]
+  node11 -> node12
+  node13 [label="BindExpression",color="orange"]
   node12 -> node13
-  node14 [label="Type: int"]
+  node14 [label="Left: a"]
   node13 -> node14
-  node15 [label="Value: 69"]
-  node13 -> node15
-  node16 [label="BindExpression",color="orange"]
-  node7 -> node16
-  node17 [label="Left: b"]
-  node16 -> node17
-  node18 [label="Lookup Value: b#1"]
+  node15 [label="Lookup Value: a#0"]
+  node14 -> node15
+  node16 [label="Type: bool"]
+  node13 -> node16
+  node17 [label="Right"]
+  node13 -> node17
+  node18 [label="Literal",color="green"]
   node17 -> node18
-  node19 [label="Type: int"]
-  node16 -> node19
-  node20 [label="Right"]
-  node16 -> node20
-  node21 [label="Literal",color="green"]
-  node20 -> node21
-  node22 [label="Type: int"]
+  node19 [label="Type: bool"]
+  node18 -> node19
+  node20 [label="Value: false"]
+  node18 -> node20
+  node21 [label="IfBody"]
+  node9 -> node21
+  node22 [label="BlockExpression",color="purple"]
   node21 -> node22
-  node23 [label="Value: 420"]
-  node21 -> node23
-  node24 [label="ConditionalExpression",color="red"]
-  node7 -> node24
-  node25 [label="Condition"]
+  node23 [label="Implicit Return Expression",color="lightgreen"]
+  node22 -> node23
+  node24 [label="Literal",color="green"]
+  node23 -> node24
+  node25 [label="Type: int"]
   node24 -> node25
-  node26 [label="Literal",color="green"]
-  node25 -> node26
-  node27 [label="Type: bool"]
-  node26 -> node27
-  node28 [label="Value: true"]
-  node26 -> node28
-  node29 [label="IfBody"]
-  node24 -> node29
-  node30 [label="BlockExpression",color="purple"]
+  node26 [label="Value: 69"]
+  node24 -> node26
+  node27 [label="ElseBody"]
+  node9 -> node27
+  node28 [label="BlockExpression",color="purple"]
+  node27 -> node28
+  node29 [label="Implicit Return Expression",color="lightgreen"]
+  node28 -> node29
+  node30 [label="Literal",color="green"]
   node29 -> node30
-  node31 [label="BindExpression",color="orange"]
+  node31 [label="Type: int"]
   node30 -> node31
-  node32 [label="Left: a"]
-  node31 -> node32
-  node33 [label="Lookup Value: a#2"]
-  node32 -> node33
-  node34 [label="Type: string"]
-  node31 -> node34
-  node35 [label="Right"]
-  node31 -> node35
-  node36 [label="Literal",color="green"]
-  node35 -> node36
-  node37 [label="Type: string"]
-  node36 -> node37
-  node38 [label="Value: \"test\""]
-  node36 -> node38
-  node39 [label="Lookup Value: constant#0"]
-  node36 -> node39
-  node40 [label="Implicit Return Expression",color="lightgreen"]
-  node30 -> node40
-  node41 [label="Identifier: a",color="lightblue"]
-  node40 -> node41
-  node42 [label="Lookup Value: a#2"]
-  node41 -> node42
-  node43 [label="ConditionalExpression",color="red"]
-  node7 -> node43
-  node44 [label="Condition"]
-  node43 -> node44
-  node45 [label="Literal",color="green"]
-  node44 -> node45
-  node46 [label="Type: bool"]
-  node45 -> node46
-  node47 [label="Value: true"]
-  node45 -> node47
-  node48 [label="IfBody"]
-  node43 -> node48
-  node49 [label="BlockExpression",color="purple"]
-  node48 -> node49
-  node50 [label="BindExpression",color="orange"]
-  node49 -> node50
-  node51 [label="Left: b"]
-  node50 -> node51
-  node52 [label="Lookup Value: b#3"]
-  node51 -> node52
-  node53 [label="Type: bool"]
-  node50 -> node53
-  node54 [label="Right"]
-  node50 -> node54
-  node55 [label="Literal",color="green"]
-  node54 -> node55
-  node56 [label="Type: bool"]
-  node55 -> node56
-  node57 [label="Value: false"]
-  node55 -> node57
-  node58 [label="Implicit Return Expression",color="lightgreen"]
-  node49 -> node58
-  node59 [label="Identifier: b",color="lightblue"]
-  node58 -> node59
-  node60 [label="Lookup Value: b#3"]
-  node59 -> node60
-  node61 [label="Implicit Return Expression",color="lightgreen"]
-  node7 -> node61
-  node62 [label="Identifier: a",color="lightblue"]
-  node61 -> node62
-  node63 [label="Lookup Value: a#0"]
-  node62 -> node63
+  node32 [label="Value: 420"]
+  node30 -> node32
 }

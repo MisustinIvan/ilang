@@ -57,5 +57,5 @@ func main() {
 
 	ast.ExportASTToGraphviz(&prog, output_file)
 
-	fmt.Printf("Successfully saved output to %s", output_file_name)
+	fmt.Printf("Successfully saved output to %s\n", output_file_name)
 }

@@ -13,6 +13,14 @@ type Generator struct {
 	// constants
 	Constants       map[string]ConstantContext
 	constantCounter int
+	// conditionals
+	conditionalLabelCounter int
+}
+
+func (g *Generator) NextConditionalLabel() string {
+	v := g.conditionalLabelCounter
+	g.conditionalLabelCounter++
+	return fmt.Sprintf(".conditional_label_%d", v)
 }
 
 type ConstantContext struct {
@@ -46,18 +54,11 @@ type FunctionContext struct {
 	LocalVariables LocalVariableScope
 	StackOffset    int
 	// helpers for scope management
-	localScopes        []LocalVariableScope
-	uniqueCounter      int
-	localVariableCount int
+	localScopes   []LocalVariableScope
+	uniqueCounter int
 }
 
 type LocalVariableScope map[string]LocalVariableContext
-
-func (ctx *FunctionContext) NewLocalVariableIndex() int {
-	v := ctx.localVariableCount
-	ctx.localVariableCount++
-	return v
-}
 
 func (ctx *FunctionContext) NewUniqueId() int {
 	i := ctx.uniqueCounter
@@ -100,7 +101,7 @@ func (ctx *FunctionContext) RegisterLocal(name string, l_type ast.Type) LocalVar
 	v := LocalVariableContext{
 		Name:     name,
 		Type:     l_type,
-		Index:    ctx.NewLocalVariableIndex(),
+		Offset:   ctx.IncrementStackOffset(l_type),
 		UniqueId: uid,
 	}
 
@@ -108,6 +109,11 @@ func (ctx *FunctionContext) RegisterLocal(name string, l_type ast.Type) LocalVar
 	ctx.LocalVariables[uid] = v
 
 	return v
+}
+
+func (ctx *FunctionContext) IncrementStackOffset(v_type ast.Type) int {
+	ctx.StackOffset += v_type.Size()
+	return -ctx.StackOffset
 }
 
 func (ctx *FunctionContext) Resolve(name string) LocalVariableContext {
@@ -124,7 +130,7 @@ func (ctx *FunctionContext) Resolve(name string) LocalVariableContext {
 type LocalVariableContext struct {
 	Name     string
 	Type     ast.Type
-	Index    int
+	Offset   int
 	UniqueId string
 }
 
@@ -143,6 +149,7 @@ func (g *Generator) RegisterGlobalFunction(f ast.FunctionDeclaration) {
 	_, exists := g.Declarations[f.Name.Value]
 	if exists {
 		fmt.Printf("Redefinition of function %s\n", f.Name.Value)
+		os.Exit(-1)
 	}
 
 	var param_types []ast.Type
@@ -151,15 +158,14 @@ func (g *Generator) RegisterGlobalFunction(f ast.FunctionDeclaration) {
 	}
 
 	ctx := FunctionContext{
-		Generator:          g,
-		Name:               f.Name.Value,
-		ReturnType:         f.Type,
-		ParameterTypes:     param_types,
-		LocalVariables:     LocalVariableScope{},
-		StackOffset:        0,
-		localScopes:        []LocalVariableScope{},
-		uniqueCounter:      0,
-		localVariableCount: 0,
+		Generator:      g,
+		Name:           f.Name.Value,
+		ReturnType:     f.Type,
+		ParameterTypes: param_types,
+		LocalVariables: LocalVariableScope{},
+		StackOffset:    0,
+		localScopes:    []LocalVariableScope{},
+		uniqueCounter:  0,
 	}
 
 	g.Declarations[f.Name.Value] = ctx
@@ -202,6 +208,7 @@ func (g *Generator) ResolveIdentifiers(expr ast.Expression, ctx *FunctionContext
 		g.ResolveIdentifiers(e.Left, ctx, false)
 		g.ResolveIdentifiers(e.Right, ctx, false)
 	case *ast.AssignmentExpression:
+		g.ResolveIdentifiers(&e.Left, ctx, false)
 		g.ResolveIdentifiers(e.Right, ctx, false)
 	case *ast.BindExpression:
 		g.ResolveIdentifiers(e.Right, ctx, false)
@@ -244,7 +251,6 @@ func (g *Generator) FindLocals(expr ast.Expression, ctx *FunctionContext) {
 		g.FindLocals(e.Value, ctx)
 	case *ast.Literal:
 		if e.Type == ast.String {
-			fmt.Printf("allocated string\n")
 			c := g.AllocateConstant(e.Value, ast.String)
 			e.LookupValue = c.LookupValue
 		}
@@ -274,28 +280,326 @@ func (g *Generator) ProcessFunctionsLocals() {
 	}
 }
 
-func (g *Generator) CalculateStackOffset(d ast.FunctionDeclaration) {
-	ctx := g.Declarations[d.Name.Value]
+func (g *Generator) EmitPrologue(ctx FunctionContext) string {
+	out := ""
+	out += ctx.Name + ":\n"
+	out += "#   prologue\n"
+	out += "    push %rbp\n"
+	out += "    mov %rsp, %rbp\n"
+	out += "#   stack allocation\n"
+	out += fmt.Sprintf("    sub $%d, %%rsp\n", ctx.StackOffset)
 
-	total_size := 0
-	for _, l := range ctx.LocalVariables {
-		total_size += l.Type.Size()
-	}
-	ctx.StackOffset = total_size
-
-	g.Declarations[d.Name.Value] = ctx
+	return out
 }
 
-func (g *Generator) CalculateStackOffsets() {
-	for _, d := range g.Program.Declarations {
-		g.CalculateStackOffset(d)
+func (g *Generator) EmitEpilogue() string {
+	out := ""
+	out += "#   epilogue\n"
+	out += "    leave\n"
+	out += "    ret\n"
+	return out
+}
+
+func Register(n int) string {
+	regs := []string{"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"}
+	if n < len(regs) {
+		return regs[n]
 	}
+	fmt.Printf("Invalid register, allowed range is 0..5\n")
+	os.Exit(-1)
+	return ""
+}
+
+func (g *Generator) GenerateMoveFunctionParameters(decl ast.FunctionDeclaration) string {
+	out := "#   move function parameters into local stack space\n"
+
+	offset := -8
+	for i, param := range decl.Parameters {
+		reg := Register(i)
+		out += fmt.Sprintf("    mov %s, %d(%%rbp)\n", reg, offset)
+		offset -= param.Type.Size()
+	}
+
+	return out
+}
+
+func (g *Generator) GenerateLiteralExpression(expr *ast.Literal, ctx *FunctionContext) string {
+	out := ""
+	out += "#   literal expression\n"
+	switch expr.Type {
+	case ast.Integer:
+		out += "    mov $" + expr.Value + ", %rax\n"
+	case ast.Boolean:
+		val := ""
+		if expr.Value == "true" {
+			val = "1"
+		} else if expr.Value == "false" {
+			val = "0"
+		} else {
+			fmt.Printf("invalid boolean value: %s\n", expr.Value)
+			os.Exit(-1)
+		}
+		out += "    mov $" + val + ", %rax\n"
+	case ast.Float:
+		fmt.Printf("floats not implemented yet\n")
+		os.Exit(-1)
+	case ast.String:
+		out += "    lea ." + expr.LookupValue + "(%rip), %rax\n"
+	case ast.Unit:
+	default:
+		fmt.Printf("invalid literal type\n")
+		os.Exit(-1)
+	}
+	return out
+}
+
+func (g *Generator) GenerateBindExpression(expr *ast.BindExpression, ctx *FunctionContext) string {
+	out := ""
+
+	// generate right value and assume its in %rax
+	out += g.GenerateExpression(expr.Right, ctx)
+
+	out += "#   bind expression\n"
+
+	out += fmt.Sprintf("    mov %%rax, %d(%%rbp)\n", ctx.LocalVariables[expr.Left.LookupValue].Offset)
+	// result stays in %rax, as intended
+
+	return out
+}
+
+func (g *Generator) GenerateAssignmentExpression(expr *ast.AssignmentExpression, ctx *FunctionContext) string {
+	out := ""
+
+	// generate right value and assume its in %rax
+	out += g.GenerateExpression(expr.Right, ctx)
+
+	out += "#   assignment expression\n"
+	out += fmt.Sprintf("    mov %%rax, %d(%%rbp)\n", ctx.LocalVariables[expr.Left.LookupValue].Offset)
+	// result stays in %rax, as intended
+
+	return out
+}
+
+func (g *Generator) GenerateBlockExpression(expr *ast.BlockExpression, ctx *FunctionContext) string {
+	out := ""
+
+	out += "#   block expression\n"
+
+	for _, e := range expr.Body {
+		out += g.GenerateExpression(e, ctx)
+	}
+
+	if expr.ImplicitReturnExpression != nil {
+		out += "#   implicit return expression\n"
+		out += g.GenerateExpression(expr.ImplicitReturnExpression, ctx)
+	} else {
+		out += "    mov $0, %rax\n"
+	}
+
+	return out
+}
+
+// assumes op1 in %rax and op2 in %rbx
+func (g *Generator) GenerateBinaryOperator(op ast.BinaryOperator) string {
+	switch op {
+	case ast.Addition:
+		out := ""
+		out += "    add %rbx, %rax\n"
+		return out
+	case ast.Subtraction:
+		out := ""
+		out += "    sub %rbx, %rax\n"
+		return out
+	case ast.Multiplication:
+		out := ""
+		out += "    imul %rbx, %rax\n"
+		return out
+	case ast.Division:
+		out := ""
+		out += "    cltd\n"
+		out += "    idiv %rbx\n"
+		return out
+	case ast.Equality:
+		out := ""
+		out += "    cmp %rax, %rbx\n"
+		out += "    sete %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.Inequality:
+		out := ""
+		out += "    cmp %rax, %rbx\n"
+		out += "    setne %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.LesserThan:
+		out := ""
+		out += "    cmp %rax, %rbx\n"
+		out += "    setl %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.GreaterThan:
+		out := ""
+		out += "    cmp %rax, %rbx\n"
+		out += "    setg %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.LesserOrEqualThan:
+		out := ""
+		out += "    cmp %rax, %rbx\n"
+		out += "    setle %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.GreaterOrEqualThan:
+		out := ""
+		out += "    cmp %rax, %rbx\n"
+		out += "    setge %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.LeftShift:
+		out := ""
+		out += "    shl %rbx, %rax\n"
+		return out
+	case ast.RightShift:
+		out := ""
+		out += "    shr %rbx, %rax\n"
+		return out
+	case ast.LogicAnd:
+		out := ""
+		out += "    and %rbx, %rax\n"
+		return out
+	case ast.LogicOr:
+		out := ""
+		out += "    or %rbx, %rax\n"
+	}
+	fmt.Printf("operator %s not implemented\n", op.String())
+	os.Exit(-1)
+	return ""
+}
+
+func (g *Generator) GenerateBinaryExpression(expr *ast.BinaryExpression, ctx *FunctionContext) string {
+	out := ""
+	out += "#   binary expression\n"
+
+	// generate right value
+	out += g.GenerateExpression(expr.Right, ctx)
+	out += "    push %rax\n"
+	out += g.GenerateExpression(expr.Left, ctx)
+	out += "    push %rax\n"
+
+	out += "    pop %rax\n"
+	out += "    pop %rbx\n"
+
+	out += g.GenerateBinaryOperator(expr.Operator)
+
+	return out
+}
+
+func (g *Generator) GenerateIdentifierExpression(expr *ast.Identifier, ctx *FunctionContext) string {
+	out := ""
+	out += "#   identifier expression\n"
+
+	out += fmt.Sprintf("    mov  %d(%%rbp), %%rax\n", ctx.LocalVariables[expr.LookupValue].Offset)
+
+	return out
+}
+
+func (g *Generator) GenerateConditionalExpression(expr *ast.ConditionalExpression, ctx *FunctionContext) string {
+	out := ""
+	out += "#   conditional expression\n"
+
+	else_label := g.NextConditionalLabel()
+	end_label := g.NextConditionalLabel()
+
+	out += g.GenerateExpression(expr.Condition, ctx)
+	// this line is very important, as its not possible to do a conditional jump
+	// based on a register, instead we must set the flag using the `cmp` instruction
+	out += "    cmp $0, %rax\n"
+	out += "    je " + else_label + "\n"
+	out += g.GenerateExpression(&expr.IfBody, ctx)
+	out += "    jmp " + end_label + "\n"
+	out += else_label + ":\n"
+	out += g.GenerateExpression(&expr.ElseBody, ctx)
+	out += end_label + ":\n"
+
+	return out
+}
+
+func (g *Generator) GenerateExpression(expr ast.Expression, ctx *FunctionContext) string {
+	switch e := expr.(type) {
+	case *ast.Literal:
+		return g.GenerateLiteralExpression(e, ctx)
+	case *ast.BindExpression:
+		return g.GenerateBindExpression(e, ctx)
+	case *ast.AssignmentExpression:
+		return g.GenerateAssignmentExpression(e, ctx)
+	case *ast.BlockExpression:
+		return g.GenerateBlockExpression(e, ctx)
+	case *ast.BinaryExpression:
+		return g.GenerateBinaryExpression(e, ctx)
+	case *ast.Identifier:
+		return g.GenerateIdentifierExpression(e, ctx)
+	case *ast.ConditionalExpression:
+		return g.GenerateConditionalExpression(e, ctx)
+	}
+	fmt.Printf("expression not implemented\n")
+	os.Exit(-1)
+	return ""
+}
+
+func (g *Generator) GenerateFunction(decl ast.FunctionDeclaration) {
+	ctx := g.Declarations[decl.Name.Value]
+	out := ""
+
+	out += g.EmitPrologue(ctx)
+
+	out += g.GenerateMoveFunctionParameters(decl)
+
+	out += "#   function body\n"
+
+	out += g.GenerateExpression(&decl.Body, &ctx)
+
+	out += g.EmitEpilogue()
+
+	g.Output += out
+}
+
+func (g *Generator) GenerateFunctions() {
+	for _, d := range g.Program.Declarations {
+		g.GenerateFunction(d)
+	}
+}
+
+func (g *Generator) AssertEntryPoint() {
+	for _, d := range g.Declarations {
+		if d.Name == "main" {
+			return
+		}
+	}
+	fmt.Printf("no entry point \"main\"\n")
+	os.Exit(-1)
+}
+
+func (g *Generator) GenerateHeaders() {
+	out := ""
+	out += "# headers\n"
+	out += ".globl main\n"
+	g.Output += out
 }
 
 func (g *Generator) Generate() ast.Prog {
 	g.RegisterGlobalFunctions()
+
+	g.AssertEntryPoint()
+
 	g.ProcessFunctionsLocals()
-	g.CalculateStackOffsets()
+
+	g.GenerateHeaders()
+
+	g.GenerateFunctions()
+
+	//g.GenerateDataSection()
+
+	fmt.Printf("g.Output:\n%v\n", g.Output)
 
 	return g.Program
 }

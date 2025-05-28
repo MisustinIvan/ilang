@@ -31,13 +31,14 @@ const (
 func (t Type) Size() int {
 	switch t {
 	case Integer:
-		return 4
+		return 8
 	case Float:
-		return 4
+		return 8
 	case Boolean:
-		return 4
+		return 8
 	case String:
-		return 0
+		// pointer
+		return 8
 	default:
 		return 0
 	}
@@ -120,6 +121,7 @@ const (
 	Multiplication
 	Division
 	Equality
+	Inequality
 	LesserThan
 	GreaterThan
 	LesserOrEqualThan
@@ -143,6 +145,8 @@ func (o BinaryOperator) String() string {
 		s = "Division"
 	case Equality:
 		s = "Equality"
+	case Inequality:
+		s = "Inequality"
 	case LesserThan:
 		s = "LesserThan"
 	case GreaterThan:

@@ -8,5 +8,8 @@
 ## third pass
 - [x] calculate stack offset
 - [x] store string literals to be referenced later by a unique identifier
-## third pass
-- [ ] TODO: do the rest...
+## fourth pass
+- [x] generate prologue/epilogue
+- [ ] move parameters to onto stack
+- [ ] generate expressions
+- [ ] generate .text and .data sections

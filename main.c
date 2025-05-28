@@ -1,5 +1,6 @@
-#include <stdio.h>
 int main() {
-    const char *a = "test";
-    printf(a);
+    int a = 10;
+    int b = 20;
+    int c = a/b;
+    return c;
 }
