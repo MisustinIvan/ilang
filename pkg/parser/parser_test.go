@@ -24,7 +24,7 @@ unit test(bool a, int b) {
 
 	p := parser.NewParser(l.Tokens())
 
-	decl := p.ParseFunctionDeclaration()
+	decl, _ := p.ParseFunctionDeclaration()
 	if decl.Type != ast.Unit {
 		t.Fatalf("Expected type Void, got %s\n", decl.Type.String())
 	}
