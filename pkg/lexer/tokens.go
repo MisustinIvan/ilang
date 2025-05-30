@@ -18,12 +18,15 @@ var KeywordTokens = map[string]bool{
 	"let":    true,
 	"if":     true,
 	"else":   true,
+	"for":    true,
+	"break":  true,
 }
 
 var OperatorTokens = map[string]bool{
 	"=":  true,
 	"+":  true,
 	"-":  true,
+	"!":  true,
 	"*":  true,
 	"/":  true,
 	"==": true,

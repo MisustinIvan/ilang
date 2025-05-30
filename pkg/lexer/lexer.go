@@ -48,7 +48,7 @@ type Token struct {
 	Value    string
 }
 
-func (t *Token) String() string {
+func (t Token) String() string {
 	return fmt.Sprintf("<%s> <%s>", t.Kind.String(), t.Value)
 }
 
@@ -67,7 +67,7 @@ func NewLexer(input string) Lexer {
 }
 
 func isWhitespace(x byte) bool {
-	return x == ' ' || x == '\n' || x == '\t'
+	return x == ' ' || x == '\n' || x == '\t' || x == '\r'
 }
 
 func isDigit(x byte) bool {
@@ -82,9 +82,10 @@ type UnexpectedTokenError struct {
 	Token string
 }
 
-func (e *UnexpectedTokenError) Error() string {
+func (e UnexpectedTokenError) Error() string {
 	return fmt.Sprintf("Unexpected token: \"%s\" []byte%v", e.Token, []byte(e.Token))
 }
+
 func NewUnexpectedTokenError(token string) error {
 	return &UnexpectedTokenError{Token: token}
 }
@@ -96,6 +97,7 @@ type UnterminatedStringLiteralError struct {
 func (e *UnterminatedStringLiteralError) Error() string {
 	return fmt.Sprintf("Unterminated string literal: \"%s\"", e.literal)
 }
+
 func NewUnterminatedStringLiteral(literal string) error {
 	return &UnterminatedStringLiteralError{literal: literal}
 }
@@ -116,7 +118,7 @@ func longestMatch(token string, valid map[string]bool) (string, int) {
 
 func (l *Lexer) Lex() error {
 	line := 0
-	column := -1
+	column := 0
 	for l.head < len(l.input) {
 		column++
 		c := l.input[l.head]
@@ -126,7 +128,7 @@ func (l *Lexer) Lex() error {
 			l.head++
 			if c == '\n' {
 				line++
-				column = -1
+				column = 0
 			}
 			continue
 		}
@@ -191,7 +193,6 @@ func (l *Lexer) Lex() error {
 			}
 
 			// check for booleans
-
 			if value == "true" || value == "false" {
 				kind = Literal
 			}
