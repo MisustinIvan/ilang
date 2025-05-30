@@ -59,6 +59,6 @@ func ParseType(val string) (Type, bool) {
 	case "unit":
 		return Unit, true
 	default:
-		return Type(-1), false
+		return Undefined, false
 	}
 }
