@@ -20,6 +20,7 @@ var KeywordTokens = map[string]bool{
 	"else":   true,
 	"for":    true,
 	"break":  true,
+	"extern": true,
 }
 
 var OperatorTokens = map[string]bool{
