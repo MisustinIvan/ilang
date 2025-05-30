@@ -3,11 +3,12 @@ package ast
 type Type int
 
 const (
-	Integer Type = iota
+	Undefined Type = iota
 	Float
 	Boolean
 	String
 	Unit
+	Integer
 )
 
 func (t Type) Size() int {
@@ -28,6 +29,8 @@ func (t Type) Size() int {
 
 func (t Type) String() string {
 	switch t {
+	case Undefined:
+		return "undefined"
 	case Integer:
 		return "int"
 	case Float:

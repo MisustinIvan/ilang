@@ -1,7 +1,10 @@
 package ast
 
+import "lang/pkg/lexer"
+
 type Expression interface {
 	expression_mark()
+	GetType() Type
 }
 
 type PrimaryExpression interface {
@@ -10,13 +13,26 @@ type PrimaryExpression interface {
 }
 
 type Expression_i struct {
+	// methods
 	Expression
+	// fields
 	Type
+	lexer.TokenPosition
+}
+
+func (e *Expression_i) GetType() Type {
+	return e.Type
 }
 
 type PrimaryExpression_i struct {
+	// methods
 	PrimaryExpression
-	Type
+	// fields
+	Expression_i
+}
+
+func (e *PrimaryExpression_i) GetType() Type {
+	return e.Type
 }
 
 type Prog struct {
@@ -24,6 +40,7 @@ type Prog struct {
 }
 
 type FunctionDeclaration struct {
+	Position   lexer.TokenPosition
 	Type       Type
 	Name       Identifier
 	Parameters []Parameter

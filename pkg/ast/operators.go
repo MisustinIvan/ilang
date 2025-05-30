@@ -61,6 +61,7 @@ var BinaryOperators = map[string]BinaryOperator{
 	"*":  Multiplication,
 	"/":  Division,
 	"==": Equality,
+	"!=": Inequality,
 	"<":  LesserThan,
 	">":  GreaterThan,
 	"<=": LesserOrEqualThan,
@@ -69,6 +70,23 @@ var BinaryOperators = map[string]BinaryOperator{
 	">>": RightShift,
 	"&&": LogicAnd,
 	"||": LogicOr,
+}
+
+var BinaryOperatorApplies = map[BinaryOperator]map[Type]bool{
+	Addition:           {Integer: true},
+	Subtraction:        {Integer: true},
+	Multiplication:     {Integer: true},
+	Division:           {Integer: true},
+	Equality:           {Integer: true, Boolean: true},
+	Inequality:         {Integer: true, Boolean: true},
+	LesserThan:         {Integer: true},
+	GreaterThan:        {Integer: true},
+	LesserOrEqualThan:  {Integer: true},
+	GreaterOrEqualThan: {Integer: true},
+	LeftShift:          {Integer: true},
+	RightShift:         {Integer: true},
+	LogicAnd:           {Integer: true, Boolean: true},
+	LogicOr:            {Integer: true, Boolean: true},
 }
 
 type UnaryOperator int
@@ -92,4 +110,9 @@ func (o UnaryOperator) String() string {
 var UnaryOperators = map[string]UnaryOperator{
 	"!": Negation,
 	"-": Inversion,
+}
+
+var UnaryOperatorApplies = map[UnaryOperator]map[Type]bool{
+	Negation:  {Boolean: true},
+	Inversion: {Integer: true},
 }
