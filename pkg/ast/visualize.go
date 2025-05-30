@@ -186,6 +186,38 @@ func writeExpression(expr Expression, parent string, w io.Writer) {
 		}
 	case *BlockExpression:
 		writeBlockExpression(*e, parent, w)
+	case *ForExpression:
+		id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="For Expression",color="red"]`+"\n", id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		init_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Init"]`+"\n", init_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, init_id)
+		writeExpression(e.Condition, init_id, w)
+		condition_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Condition"]`+"\n", condition_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, condition_id)
+		writeExpression(e.Condition, condition_id, w)
+		post_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Post"]`+"\n", post_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, post_id)
+		writeExpression(e.Condition, post_id, w)
+		body_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Body"]`+"\n", body_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, body_id)
+		writeBlockExpression(*e.Body, body_id, w)
+	case *UnaryExpression:
+		id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Unary Expression",color="red"]`+"\n", id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		operator_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Operator: %s""]`+"\n", operator_id, e.Operator.String())
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, operator_id)
+		value_id := nextNodeID()
+		fmt.Fprintf(w, `  %s [label="Value""]`+"\n", value_id)
+		fmt.Fprintf(w, `  %s -> %s`+"\n", id, value_id)
+		writeExpression(e.Value, value_id, w)
+
 	default:
 		id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="Unknown Expression: %v",color="red"]`+"\n", id, e)

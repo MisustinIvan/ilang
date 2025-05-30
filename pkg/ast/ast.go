@@ -1,11 +1,23 @@
 package ast
 
-import (
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
-)
+type Expression interface {
+	expression_mark()
+}
+
+type PrimaryExpression interface {
+	Expression
+	primary_expression_mark()
+}
+
+type Expression_i struct {
+	Expression
+	Type
+}
+
+type PrimaryExpression_i struct {
+	PrimaryExpression
+	Type
+}
 
 type Prog struct {
 	Declarations []FunctionDeclaration
@@ -18,253 +30,85 @@ type FunctionDeclaration struct {
 	Body       BlockExpression
 }
 
-type Type int
-
-const (
-	Integer Type = iota
-	Float
-	Boolean
-	String
-	Unit
-)
-
-func (t Type) Size() int {
-	switch t {
-	case Integer:
-		return 8
-	case Float:
-		return 8
-	case Boolean:
-		return 8
-	case String:
-		// pointer
-		return 8
-	default:
-		return 0
-	}
-}
-
-func (t Type) String() string {
-	s := "UNKNOWN"
-	switch t {
-	case Integer:
-		s = "int"
-	case Float:
-		s = "float"
-	case Boolean:
-		s = "bool"
-	case String:
-		s = "string"
-	case Unit:
-		s = "unit"
-	}
-	return s
-}
-
-var Types = map[string]Type{
-	"int":    Integer,
-	"float":  Float,
-	"bool":   Boolean,
-	"string": String,
-	"unit":   Unit,
-}
-
 type Parameter struct {
+	Type
 	Name Identifier
-	Type Type
 }
+
+// actual expressions
 
 type BlockExpression struct {
-	BasePrimaryExpression
+	PrimaryExpression_i
 	Body                     []Expression
 	ImplicitReturnExpression Expression
 }
 
-type Expression interface {
-	expression_mark()
+type Literal struct {
+	PrimaryExpression_i
+	Value       string
+	LookupValue string
 }
 
-type BaseExpression struct{}
-
-func (e *BaseExpression) expression_mark() {}
-
-type BindExpression struct {
-	BaseExpression
-	Left  Identifier
-	Type  Type
-	Right Expression
+type Identifier struct {
+	PrimaryExpression_i
+	Value       string
+	LookupValue string
 }
 
 type ReturnExpression struct {
-	BaseExpression
+	Expression_i
 	Value Expression
 }
 
+type UnaryExpression struct {
+	PrimaryExpression_i
+	Operator UnaryOperator
+	Value    Expression
+}
+
+type BindExpression struct {
+	Expression_i
+	Left  Identifier
+	Right Expression
+}
+
 type AssignmentExpression struct {
-	BaseExpression
+	Expression_i
 	Left  Identifier
 	Right Expression
 }
 
 type BinaryExpression struct {
-	BaseExpression
+	Expression_i
 	Left     Expression
 	Operator BinaryOperator
 	Right    Expression
 }
 
-type BinaryOperator int
-
-const (
-	Addition BinaryOperator = iota
-	Subtraction
-	Multiplication
-	Division
-	Equality
-	Inequality
-	LesserThan
-	GreaterThan
-	LesserOrEqualThan
-	GreaterOrEqualThan
-	LeftShift
-	RightShift
-	LogicAnd
-	LogicOr
-)
-
-func (o BinaryOperator) String() string {
-	s := "UNKNOWN"
-	switch o {
-	case Addition:
-		s = "Addition"
-	case Subtraction:
-		s = "Subtraction"
-	case Multiplication:
-		s = "Multiplication"
-	case Division:
-		s = "Division"
-	case Equality:
-		s = "Equality"
-	case Inequality:
-		s = "Inequality"
-	case LesserThan:
-		s = "LesserThan"
-	case GreaterThan:
-		s = "GreaterThan"
-	case LesserOrEqualThan:
-		s = "LesserOrEqualThan"
-	case GreaterOrEqualThan:
-		s = "GreaterOrEqualThan"
-	case LeftShift:
-		s = "LeftShift"
-	case RightShift:
-		s = "RightShift"
-	case LogicAnd:
-		s = "LogicAnd"
-	case LogicOr:
-		s = "LogicOr"
-	}
-
-	return s
-}
-
-var BinaryOperators = map[string]BinaryOperator{
-	"+":  Addition,
-	"-":  Subtraction,
-	"*":  Multiplication,
-	"/":  Division,
-	"==": Equality,
-	"<":  LesserThan,
-	">":  GreaterThan,
-	"<=": LesserOrEqualThan,
-	">=": GreaterOrEqualThan,
-	"<<": LeftShift,
-	">>": RightShift,
-	"&&": LogicAnd,
-	"||": LogicOr,
+type SeparatedExpression struct {
+	PrimaryExpression_i
+	Value Expression
 }
 
 type ConditionalExpression struct {
-	PrimaryExpression
+	PrimaryExpression_i
 	Condition Expression
 	IfBody    BlockExpression
 	ElseBody  BlockExpression
 }
 
-type PrimaryExpression interface {
-	Expression
-	primary_expression_mark()
+type ForExpression struct {
+	PrimaryExpression_i
+	Condition Expression
+	Body      *BlockExpression
 }
 
-type BasePrimaryExpression struct {
-	BaseExpression
-}
-
-func (e *BasePrimaryExpression) primary_expression_mark() {}
-
-type Literal struct {
-	BasePrimaryExpression
-	Value       string
-	Type        Type
-	LookupValue string
-}
-
-func isInteger(x string) bool {
-	_, err := strconv.ParseInt(x, 10, 64)
-	return err == nil
-}
-
-func isFloat(x string) bool {
-	_, err := strconv.ParseFloat(x, 10)
-	return err == nil
-}
-
-func isBoolean(x string) bool {
-	return x == "true" || x == "false"
-}
-
-func isString(x string) bool {
-	return strings.HasPrefix(x, "\"") && strings.HasSuffix(x, "\"")
-}
-
-func isUnit(x string) bool {
-	return x == "unit"
-}
-
-func LiteralType(l string) Type {
-	switch {
-	case isInteger(l):
-		return Integer
-	case isFloat(l):
-		return Float
-	case isBoolean(l):
-		return Boolean
-	case isString(l):
-		return String
-	case isUnit(l):
-		return Unit
-	default:
-		fmt.Printf("Literal %s has unknown type\n", l)
-		os.Exit(-1)
-		return Unit
-	}
-}
-
-type Identifier struct {
-	BasePrimaryExpression
-	LookupValue string
-	Value       string
+type BreakExpression struct {
+	Expression_i
 }
 
 type FunctionCall struct {
-	BasePrimaryExpression
+	PrimaryExpression_i
 	Function Identifier
 	Params   []Expression
-}
-
-// block expression implemented above
-
-type SeparatedExpression struct {
-	BasePrimaryExpression
-	Value Expression
 }
