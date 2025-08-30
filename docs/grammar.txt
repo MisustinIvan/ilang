@@ -1,0 +1,41 @@
+*Cheatsheet*
+- { 'something' } means a variable amount of something, i.e zero or more of something
+- [ 'something' ] means optional something, i.e either nothing or 'something'
+- foo | bar means foo or bar
+- 'something' means a text literal with the value 'something'
+- '*' means any text literal value
+
+prog         ::= { fun_decl }
+
+fun_decl     ::= type ident '(' parm_types ')' block_expr
+parm_types   ::= [ type ident { ',' type ident } ]
+
+block_expr  ::= '{' { expr ';' } [ expr ] '}'
+
+expr        ::= bind_expr
+              | return_expr
+              | assg_expr
+              | simple_expr
+
+simple_expr ::= primary
+              | bin_expr
+
+bind_expr   ::= 'let' ident ':' type '=' simple_expr
+return_expr ::= 'return' simple_expr
+assg_expr   ::= ident '=' simple_expr
+bin_expr    ::= primary binop simple_expr
+con_expr    ::= 'if' simple_expr simple_expr { 'else' simple_expr }
+
+primary     ::= literal
+              | ident
+              | call_expr
+              | block_expr
+              | sep_expr
+              | con_expr
+
+call_expr   ::= ident '(' [ simple_expr { ',' simple_expr } ] ')'
+sep_expr    ::= '(' simple_expr ')'
+literal     ::= '*'
+ident       ::= '*'
+binop       ::= '+' | '-' | '*' | '/' | '==' | '<' | '>' | '<=' | '>=' | '<<' | '>>' | '&&' | '||'
+type        ::= '*'
