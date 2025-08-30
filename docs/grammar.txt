@@ -19,11 +19,13 @@ expr        ::= bind_expr
 
 simple_expr ::= primary
               | bin_expr
+			  | unary_expr
 
 bind_expr   ::= 'let' ident ':' type '=' simple_expr
 return_expr ::= 'return' simple_expr
 assg_expr   ::= ident '=' simple_expr
 bin_expr    ::= primary binop simple_expr
+unary_expr  ::= unop primary
 con_expr    ::= 'if' simple_expr simple_expr { 'else' simple_expr }
 
 primary     ::= literal
@@ -37,5 +39,6 @@ call_expr   ::= ident '(' [ simple_expr { ',' simple_expr } ] ')'
 sep_expr    ::= '(' simple_expr ')'
 literal     ::= '*'
 ident       ::= '*'
-binop       ::= '+' | '-' | '*' | '/' | '==' | '<' | '>' | '<=' | '>=' | '<<' | '>>' | '&&' | '||'
 type        ::= '*'
+binop       ::= '+' | '-' | '*' | '/' | '==' | '<' | '>' | '<=' | '>=' | '<<' | '>>' | '&&' | '||'
+unop        ::= '-' | '!'
