@@ -99,6 +99,12 @@ type BinaryExpression struct {
 	Right    SimpleExpression
 }
 
+type UnaryExpression struct {
+	SimpleExpression_i
+	Operator UnaryOperator
+	Value    PrimaryExpression
+}
+
 // next are highest level expressions
 
 type BindExpression struct {
