@@ -2,130 +2,119 @@ package ast
 
 import "lang/pkg/lexer"
 
+type FunctionDeclaration struct {
+	Name       string
+	Type       Type
+	Parameters []ParameterDefinition
+	Body       BlockExpression
+	Position   lexer.Position
+}
+
+type ParameterDefinition struct {
+	Name     string
+	Type     Type
+	Position lexer.Position
+}
+
 type Expression interface {
 	expression_mark()
 	GetType() Type
-}
-
-type PrimaryExpression interface {
-	Expression
-	primary_expression_mark()
+	GetPosition() lexer.Position
 }
 
 type Expression_i struct {
-	// methods
-	Expression
-	// fields
-	Type
-	lexer.TokenPosition
+	Type     Type
+	Position lexer.Position
 }
 
-func (e *Expression_i) GetType() Type {
-	return e.Type
+func (e *Expression_i) expression_mark()            {}
+func (e *Expression_i) GetType() Type               { return e.Type }
+func (e *Expression_i) GetPosition() lexer.Position { return e.Position }
+
+type SimpleExpression interface {
+	simple_expression_mark()
+	Expression
+}
+
+type SimpleExpression_i struct {
+	Expression_i
+}
+
+func (e *SimpleExpression_i) simple_expression_mark() {}
+
+type PrimaryExpression interface {
+	primary_expression_mark()
+	SimpleExpression
 }
 
 type PrimaryExpression_i struct {
-	// methods
-	PrimaryExpression
-	// fields
-	Expression_i
+	SimpleExpression_i
 }
 
-func (e *PrimaryExpression_i) GetType() Type {
-	return e.Type
+func (e *PrimaryExpression_i) primary_expression_mark() {}
+
+// actual expressions implementing grammar
+// starting with primary expressions
+
+type LiteralExpression struct {
+	PrimaryExpression_i
+	Value string
 }
 
-type Prog struct {
-	Declarations []FunctionDeclaration
+type IdentifierExpression struct {
+	PrimaryExpression_i
+	Value string
 }
 
-type FunctionDeclaration struct {
-	Position   lexer.TokenPosition
-	Type       Type
-	Name       Identifier
-	Parameters []Parameter
-	Body       BlockExpression
+type CallExpression struct {
+	PrimaryExpression_i
+	Identifier string
+	Params     []SimpleExpression
 }
-
-type Parameter struct {
-	Type
-	Name Identifier
-}
-
-// actual expressions
 
 type BlockExpression struct {
 	PrimaryExpression_i
-	Body                     []Expression
-	ImplicitReturnExpression Expression
-}
-
-type Literal struct {
-	PrimaryExpression_i
-	Value       string
-	LookupValue string
-}
-
-type Identifier struct {
-	PrimaryExpression_i
-	Value       string
-	LookupValue string
-}
-
-type ReturnExpression struct {
-	Expression_i
-	Value Expression
-}
-
-type UnaryExpression struct {
-	PrimaryExpression_i
-	Operator UnaryOperator
-	Value    Expression
-}
-
-type BindExpression struct {
-	Expression_i
-	Left  Identifier
-	Right Expression
-}
-
-type AssignmentExpression struct {
-	Expression_i
-	Left  Identifier
-	Right Expression
-}
-
-type BinaryExpression struct {
-	Expression_i
-	Left     Expression
-	Operator BinaryOperator
-	Right    Expression
+	Body           []Expression
+	ImplicitReturn Expression
 }
 
 type SeparatedExpression struct {
 	PrimaryExpression_i
-	Value Expression
+	Body SimpleExpression
 }
 
 type ConditionalExpression struct {
 	PrimaryExpression_i
-	Condition Expression
-	IfBody    BlockExpression
-	ElseBody  BlockExpression
+	Condition SimpleExpression
+	IfBody    SimpleExpression
+	ElseBody  SimpleExpression
 }
 
-type ForExpression struct {
-	PrimaryExpression_i
-	Condition Expression
-	Body      *BlockExpression
+// next are simple expressions
+
+type BinaryExpression struct {
+	SimpleExpression_i
+	Left     PrimaryExpression
+	Operator BinaryOperator
+	Right    SimpleExpression
 }
 
-type BreakExpression struct {
+// next are highest level expressions
+
+type BindExpression struct {
 	Expression_i
+	Identifier string
+	Type       Type
+	Value      SimpleExpression
 }
 
-type FunctionCall struct {
-	PrimaryExpression_i
-	Function Identifier
-	Params   []Expression
+type ReturnExpression struct {
+	Expression_i
+	Value SimpleExpression
+}
+
+type AssignmentExpression struct {
+	Expression_i
+	Identifier string
+	Value      SimpleExpression
 }
