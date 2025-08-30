@@ -13,3 +13,15 @@
 - [ ] move parameters to onto stack
 - [ ] generate expressions
 - [ ] generate .text and .data sections
+
+# type checking
+- when to check types?
+- in binding
+- in assignments
+- in function calls
+- in binary operations
+- in unary operations
+
+# TODO:
+- figure out when to calculate all the types(needs local variable context because of identifiers)
+- figure out when to run the type check step (probably after the above mentioned step)
