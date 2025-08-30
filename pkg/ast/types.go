@@ -1,5 +1,7 @@
 package ast
 
+// Contains very basic definitions of types, will be reworked
+
 type Type int
 
 const (

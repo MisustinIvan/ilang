@@ -1,5 +1,7 @@
 package ast
 
+// Contains definitions of binary and unary operators and the types they operate on
+
 type BinaryOperator int
 
 const (

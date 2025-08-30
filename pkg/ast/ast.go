@@ -2,6 +2,12 @@ package ast
 
 import "lang/pkg/lexer"
 
+// Contains definitions for ast nodes as defined by the grammar
+
+type Program struct {
+	Declarations []FunctionDeclaration
+}
+
 type FunctionDeclaration struct {
 	Name       string
 	Type       Type

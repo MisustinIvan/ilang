@@ -2,10 +2,11 @@ package ast
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
+
+// contains functions that help determining types of literal values
 
 func isInteger(x string) bool {
 	_, err := strconv.ParseInt(x, 10, 64)
@@ -29,21 +30,19 @@ func isUnit(x string) bool {
 	return x == "unit"
 }
 
-func LiteralType(l string) Type {
+func LiteralType(l string) (Type, error) {
 	switch {
 	case isInteger(l):
-		return Integer
+		return Integer, nil
 	case isFloat(l):
-		return Float
+		return Float, nil
 	case isBoolean(l):
-		return Boolean
+		return Boolean, nil
 	case isString(l):
-		return String
+		return String, nil
 	case isUnit(l):
-		return Unit
+		return Unit, nil
 	default:
-		fmt.Printf("Literal %s has unknown type\n", l)
-		os.Exit(-1)
-		return Unit
+		return Unit, fmt.Errorf("literal \"%s\" has unknown type", l)
 	}
 }

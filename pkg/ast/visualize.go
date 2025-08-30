@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// Contains functions that allow converting an ast.Program to a graphviz graph
+
 var nodeCounter int
 
 func nextNodeID() string {
