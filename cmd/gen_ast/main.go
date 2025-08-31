@@ -8,10 +8,11 @@ import (
 	"lang/pkg/parser"
 	"log"
 	"os"
+	"os/exec"
 )
 
 func printUsage() {
-	fmt.Printf("Usage: %s <program_file> <output_file>", os.Args[0])
+	fmt.Printf("Usage: %s <program_file> <output_file>(without extension)", os.Args[0])
 }
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 	}
 	defer source_file.Close()
 
-	output_file, err := os.OpenFile(output_file_name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	output_file, err := os.OpenFile(output_file_name+".dot", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
@@ -54,5 +55,11 @@ func main() {
 
 	ast_visualizer.ExportASTToGraphviz(prog, output_file)
 
-	fmt.Printf("Successfully saved output to %s\n", output_file_name)
+	fmt.Printf("Successfully saved graph to %s\n", output_file_name)
+
+	cmd := exec.Command("dot", "-Tpng", output_file_name+".dot", "-o", output_file_name+".png")
+	err = cmd.Run()
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
 }
