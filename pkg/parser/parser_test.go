@@ -1,7 +1,6 @@
 package parser_test
 
 import (
-	"fmt"
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
 	"testing"
@@ -101,10 +100,6 @@ test(int b) {
 	_, err = parser.Parse()
 	if err == nil {
 		t.Logf("got no parse error")
-		t.Fail()
+		t.FailNow()
 	}
-
-	fmt.Printf("err: %v\n", err)
-
-	t.Fail()
 }
