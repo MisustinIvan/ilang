@@ -9,11 +9,9 @@ type Program struct {
 }
 
 type FunctionDeclaration struct {
-	Name       string
-	Type       Type
+	Identifier IdentifierExpression
 	Parameters []ParameterDefinition
-	Body       BlockExpression
-	Position   lexer.Position
+	Body       *BlockExpression
 }
 
 type ParameterDefinition struct {
@@ -74,7 +72,7 @@ type IdentifierExpression struct {
 
 type CallExpression struct {
 	PrimaryExpression_i
-	Identifier string
+	Identifier IdentifierExpression
 	Params     []SimpleExpression
 }
 
@@ -115,7 +113,7 @@ type UnaryExpression struct {
 
 type BindExpression struct {
 	Expression_i
-	Identifier string
+	Identifier IdentifierExpression
 	Type       Type
 	Value      SimpleExpression
 }
@@ -127,6 +125,6 @@ type ReturnExpression struct {
 
 type AssignmentExpression struct {
 	Expression_i
-	Identifier string
+	Identifier IdentifierExpression
 	Value      SimpleExpression
 }
