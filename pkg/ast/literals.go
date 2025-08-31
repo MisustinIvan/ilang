@@ -43,6 +43,6 @@ func LiteralType(l string) (Type, error) {
 	case isUnit(l):
 		return Unit, nil
 	default:
-		return Unit, fmt.Errorf("literal \"%s\" has unknown type", l)
+		return Undefined, fmt.Errorf("literal \"%s\" has unknown type", l)
 	}
 }
