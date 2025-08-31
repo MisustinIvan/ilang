@@ -90,8 +90,14 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error
 		return nil, err
 	}
 	if tk.Kind != kind || (value != "" && tk.Value != value) {
+		var msg string
+		if value == "" {
+			msg = fmt.Sprintf("expected %s, got %s '%s'", kind.String(), tk.Kind.String(), tk.Value)
+		} else {
+			msg = fmt.Sprintf("expected %s '%s', got %s '%s'", kind.String(), value, tk.Kind.String(), tk.Value)
+		}
 		return nil, parseError(
-			fmt.Sprintf("expected %s '%s', got %s '%s'", kind.String(), value, tk.Kind.String(), tk.Value),
+			msg,
 			tk.Position,
 		)
 	}
@@ -112,8 +118,7 @@ func (p *Parser) parseIdentifier() (*ast.IdentifierExpression, error) {
 	return id, nil
 }
 
-func (p *Parser) parseBindExpression() (*ast.BindExpression, []error) {
-	errs := []error{}
+func (p *Parser) parseBindExpression() (*ast.BindExpression, error) {
 	var e_ident *ast.IdentifierExpression
 	var e_type_name *ast.IdentifierExpression
 	var e_value ast.SimpleExpression
@@ -121,32 +126,34 @@ func (p *Parser) parseBindExpression() (*ast.BindExpression, []error) {
 
 	first_tk, err := p.Expect(lexer.Keyword, "let")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 	expr_start = first_tk.Position
 
 	e_ident, err = p.parseIdentifier()
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	_, err = p.Expect(lexer.Punctuator, ":")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	e_type_name, err = p.parseIdentifier()
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	_, err = p.Expect(lexer.Operator, "=")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
-	e_value, r_errs := p.parseSimpleExpression()
-	errs = append(errs, r_errs...)
+	e_value, err = p.parseSimpleExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	r := ast.BindExpression{
 		Identifier: e_ident,
@@ -155,64 +162,61 @@ func (p *Parser) parseBindExpression() (*ast.BindExpression, []error) {
 	}
 	r.Position = expr_start
 
-	return &r, errs
+	return &r, nil
 }
 
-func (p *Parser) parseReturnExpression() (*ast.ReturnExpression, []error) {
-	var errs []error
+func (p *Parser) parseReturnExpression() (*ast.ReturnExpression, error) {
 	var e_value ast.SimpleExpression
 	var expr_start lexer.Position
 
 	ret_tk, err := p.Expect(lexer.Keyword, "return")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
-	if ret_tk != nil {
-		expr_start = ret_tk.Position
-	}
+	expr_start = ret_tk.Position
 
-	e_value, e_errs := p.parseSimpleExpression()
-	errs = append(errs, e_errs...)
+	e_value, err = p.parseSimpleExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	r := &ast.ReturnExpression{
 		Value: e_value,
 	}
 	r.Position = expr_start
-	return r, errs
+	return r, nil
 }
 
-func (p *Parser) parseAssignmentExpression() (*ast.AssignmentExpression, []error) {
-	var errs []error
+func (p *Parser) parseAssignmentExpression() (*ast.AssignmentExpression, error) {
 	var expr_start lexer.Position
 	var e_ident *ast.IdentifierExpression
 	var e_value ast.SimpleExpression
 
 	e_ident, err := p.parseIdentifier()
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
-	if e_ident != nil {
-		expr_start = e_ident.Position
-	}
+	expr_start = e_ident.Position
 
 	_, err = p.Expect(lexer.Operator, "=")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
-	e_value, e_errs := p.parseSimpleExpression()
-	errs = append(errs, e_errs...)
+	e_value, err = p.parseSimpleExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	r := ast.AssignmentExpression{
 		Identifier: e_ident,
 		Value:      e_value,
 	}
 	r.Position = expr_start
-	return &r, errs
+	return &r, nil
 }
 
-func (p *Parser) parseSimpleExpression() (ast.SimpleExpression, []error) {
-	var errs []error
+func (p *Parser) parseSimpleExpression() (ast.SimpleExpression, error) {
 	// according to grammar
 	// simple_expr ::= primary
 	//               | bin_expr
@@ -225,46 +229,47 @@ func (p *Parser) parseSimpleExpression() (ast.SimpleExpression, []error) {
 
 	// then we parse a primary expression and distinguish between
 	// only a primary expression and a binary expression
-	primary, p_errs := p.parsePrimaryExpression()
-	errs = append(errs, p_errs...)
+	primary, err := p.parsePrimaryExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	if p.matchCurrent(lexer.Operator, "") {
 		operator_tk, err := p.Expect(lexer.Operator, "")
 		if err != nil {
-			errs = append(errs, err)
+			return nil, err
 		}
 
 		operator, ok := ast.BinaryOperators[operator_tk.Value]
 		if !ok {
-			errs = append(errs, parseError(fmt.Sprintf("unknown binary operator: %s", operator_tk.Value), operator_tk.Position))
+			return nil, parseError(fmt.Sprintf("unknown binary operator: %s", operator_tk.Value), operator_tk.Position)
 		}
 
-		simple, s_errs := p.parseSimpleExpression()
-		errs = append(errs, s_errs...)
+		simple, err := p.parseSimpleExpression()
+		if err != nil {
+			return nil, err
+		}
 
 		return &ast.BinaryExpression{
 			Left:     primary,
 			Operator: operator,
 			Right:    simple,
-		}, errs
+		}, nil
 	}
 
-	return primary, errs
+	return primary, nil
 }
 
-func (p *Parser) parseLiteral() (*ast.LiteralExpression, []error) {
-	var errs []error
+func (p *Parser) parseLiteral() (*ast.LiteralExpression, error) {
 	var expr_start lexer.Position
 	var value string
 
 	literal_tk, err := p.Expect(lexer.Literal, "")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
-	if literal_tk != nil {
-		value = literal_tk.Value
-		expr_start = literal_tk.Position
-	}
+	value = literal_tk.Value
+	expr_start = literal_tk.Position
 
 	literal := &ast.LiteralExpression{
 		Value: value,
@@ -274,24 +279,21 @@ func (p *Parser) parseLiteral() (*ast.LiteralExpression, []error) {
 	return literal, nil
 }
 
-func (p *Parser) parseFunctionCall() (*ast.CallExpression, []error) {
-	var errs []error
+func (p *Parser) parseFunctionCall() (*ast.CallExpression, error) {
 	var expr_start lexer.Position
 	var ident *ast.IdentifierExpression
 	var params []ast.SimpleExpression
 
 	ident, err := p.parseIdentifier()
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
-	if ident != nil {
-		expr_start = ident.Position
-	}
+	expr_start = ident.Position
 
 	// consume bracket
 	_, err = p.Expect(lexer.Punctuator, "(")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	needs_comma := false
@@ -299,21 +301,23 @@ func (p *Parser) parseFunctionCall() (*ast.CallExpression, []error) {
 		if needs_comma {
 			_, err = p.Expect(lexer.Punctuator, ",")
 			if err != nil {
-				errs = append(errs, err)
+				return nil, err
 			}
 		} else {
 			needs_comma = true
 		}
 
-		p, p_errs := p.parseSimpleExpression()
-		errs = append(errs, p_errs...)
+		p, err := p.parseSimpleExpression()
+		if err != nil {
+			return nil, err
+		}
 		params = append(params, p)
 	}
 
 	// consume bracket
 	_, err = p.Expect(lexer.Punctuator, ")")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	r := ast.CallExpression{
@@ -321,25 +325,26 @@ func (p *Parser) parseFunctionCall() (*ast.CallExpression, []error) {
 		Params:     params,
 	}
 	r.Position = expr_start
-	return &r, errs
+	return &r, nil
 }
 
-func (p *Parser) parseSeparatedExpression() (*ast.SeparatedExpression, []error) {
-	var errs []error
+func (p *Parser) parseSeparatedExpression() (*ast.SeparatedExpression, error) {
 	var expr_start lexer.Position
 	var body ast.SimpleExpression
 
 	_, err := p.Expect(lexer.Punctuator, "(")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
-	body, b_errs := p.parseSimpleExpression()
-	errs = append(errs, b_errs...)
+	body, err = p.parseSimpleExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = p.Expect(lexer.Punctuator, ")")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	e := &ast.SeparatedExpression{
@@ -347,11 +352,10 @@ func (p *Parser) parseSeparatedExpression() (*ast.SeparatedExpression, []error) 
 	}
 	e.Position = expr_start
 
-	return e, errs
+	return e, nil
 }
 
-func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, []error) {
-	var errs []error
+func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, error) {
 	var expr_start lexer.Position
 	var condition ast.SimpleExpression
 	var if_body *ast.BlockExpression
@@ -359,23 +363,27 @@ func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, []err
 
 	if_tk, err := p.Expect(lexer.Keyword, "if")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
-	if if_tk != nil {
-		expr_start = if_tk.Position
+	expr_start = if_tk.Position
+
+	condition, err = p.parseSimpleExpression()
+	if err != nil {
+		return nil, err
 	}
 
-	condition, c_errs := p.parseSimpleExpression()
-	errs = append(errs, c_errs...)
-	if_body, b_errs := p.parseBlockExpression()
-	errs = append(errs, b_errs...)
+	if_body, err = p.parseBlockExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	if p.matchNext(lexer.Keyword, "else", 0) {
 		// consume 'else'
 		p.next()
-		else_b, e_errs := p.parseBlockExpression()
-		else_body = else_b
-		errs = append(errs, e_errs...)
+		else_body, err = p.parseBlockExpression()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	e := &ast.ConditionalExpression{
@@ -385,10 +393,10 @@ func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, []err
 	}
 	e.Position = expr_start
 
-	return e, errs
+	return e, nil
 }
 
-func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, []error) {
+func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, error) {
 	// according to grammar:
 	// primary ::= literal
 	//           | ident
@@ -410,7 +418,7 @@ func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, []error) {
 	// parse identifier
 	if p.matchNext(lexer.Identifier, "", 0) {
 		id, err := p.parseIdentifier()
-		return id, []error{err}
+		return id, err
 	}
 
 	// parse block expression
@@ -433,41 +441,39 @@ func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, []error) {
 		pos = p.peek().Position
 	}
 
-	return nil, []error{parseError("unknown primary expression", pos)}
+	return nil, parseError("unknown primary expression", pos)
 }
 
-func (p *Parser) parseUnaryExpression() (*ast.UnaryExpression, []error) {
-	var errs []error
+func (p *Parser) parseUnaryExpression() (*ast.UnaryExpression, error) {
 	var expr_start lexer.Position
 	var operator ast.UnaryOperator
 	var value ast.PrimaryExpression
 
 	operator_tk, err := p.Expect(lexer.Operator, "")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
-	if operator_tk != nil {
-		expr_start = operator_tk.Position
-		op, ok := ast.UnaryOperators[operator_tk.Value]
-		if !ok {
-			errs = append(errs, parseError(fmt.Sprintf("unknown unary operator: %s", operator_tk.Value), operator_tk.Position))
-		} else {
-			operator = op
-		}
+	expr_start = operator_tk.Position
+	op, ok := ast.UnaryOperators[operator_tk.Value]
+	if !ok {
+		return nil, parseError(fmt.Sprintf("unknown unary operator: %s", operator_tk.Value), operator_tk.Position)
 	}
+	operator = op
 
-	value, v_errs := p.parsePrimaryExpression()
-	errs = append(errs, v_errs...)
+	value, err = p.parsePrimaryExpression()
+	if err != nil {
+		return nil, err
+	}
 
 	r := ast.UnaryExpression{
 		Operator: operator,
 		Value:    value,
 	}
 	r.Position = expr_start
-	return &r, errs
+	return &r, err
 }
 
-func (p *Parser) parseExpression() (ast.Expression, []error) {
+func (p *Parser) parseExpression() (ast.Expression, error) {
 	// according to grammar:
 	// expr : bind_expr
 	//      | return_expr
@@ -495,8 +501,7 @@ func (p *Parser) parseExpression() (ast.Expression, []error) {
 
 // parseBlockExpression parses a block expression, returning it and all the
 // errors it encountered along the way.
-func (p *Parser) parseBlockExpression() (*ast.BlockExpression, []error) {
-	errs := []error{}
+func (p *Parser) parseBlockExpression() (*ast.BlockExpression, error) {
 	var expr_start lexer.Position
 	if tk := p.peek(); tk != nil {
 		expr_start = tk.Position
@@ -504,38 +509,31 @@ func (p *Parser) parseBlockExpression() (*ast.BlockExpression, []error) {
 	var e_body []ast.Expression
 	var e_return_expression ast.Expression
 
-	// expect opening curly brace, if not found can't parse expression at all
 	_, err := p.Expect(lexer.Punctuator, "{")
 	if err != nil {
-		errs = append(errs, err)
-		return nil, errs
+		return nil, err
 	}
 
-	has_return_expression := false
 	for p.peek() != nil && !p.matchNext(lexer.Punctuator, "}", 0) {
-		expression, e_errs := p.parseExpression()
-		errs = append(errs, e_errs...)
+		expression, err := p.parseExpression()
+		if err != nil {
+			return nil, err
+		}
 
-		if !p.matchNext(lexer.Punctuator, ";", 0) {
-			if has_return_expression {
-				errs = append(errs, parseError("unexpected expression, block expression already has a return expression", expression.GetPosition()))
-				continue
-			}
-			e_return_expression = expression
-			has_return_expression = true
-		} else {
+		if p.matchCurrent(lexer.Punctuator, ";") {
+			p.next()
 			e_body = append(e_body, expression)
-			_, err = p.Expect(lexer.Punctuator, ";")
-			if err != nil {
-				errs = append(errs, err)
-			}
+		} else if e_return_expression == nil {
+			e_return_expression = expression
+		} else {
+			return nil, parseError("block expression already has an implicit return", expression.GetPosition())
 		}
 	}
 
 	// consume curly brace
 	_, err = p.Expect(lexer.Punctuator, "}")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	r := ast.BlockExpression{
@@ -544,14 +542,13 @@ func (p *Parser) parseBlockExpression() (*ast.BlockExpression, []error) {
 	}
 	r.Position = expr_start
 
-	return &r, errs
+	return &r, nil
 }
 
 // ParseFunctionDeclaration parses a function declaration along with its body
 // starting at the position of the Parser head. Any errors encountered along
 // the way will be returned.
-func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []error) {
-	errs := []error{}
+func (p *Parser) ParseFunctionDeclaration() (*ast.FunctionDeclaration, error) {
 	var f_ident *ast.IdentifierExpression
 	var f_type_name *ast.IdentifierExpression
 	var f_params []ast.ParameterDefinition
@@ -560,19 +557,19 @@ func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []error) {
 	// parse function type
 	f_type_name, err := p.parseIdentifier()
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	// parse function name
 	f_ident, err = p.parseIdentifier()
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	// expect opening parenthesis
 	_, err = p.Expect(lexer.Punctuator, "(")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	param_names := map[string]bool{}
@@ -583,7 +580,7 @@ func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []error) {
 		if requires_comma {
 			_, err = p.Expect(lexer.Punctuator, ",")
 			if err != nil {
-				errs = append(errs, err)
+				return nil, err
 			}
 		} else {
 			requires_comma = true
@@ -591,16 +588,16 @@ func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []error) {
 		// parse parameter type
 		param_type_name, err := p.parseIdentifier()
 		if err != nil {
-			errs = append(errs, err)
+			return nil, err
 		}
 
 		// parse parameter name
 		param_name, err := p.parseIdentifier()
 		if err != nil {
-			errs = append(errs, err)
+			return nil, err
 		}
 		if param_names[param_name.Value] {
-			errs = append(errs, parseError(fmt.Sprintf("parameter %s already defined", param_name.Value), param_name.Position))
+			return nil, parseError(fmt.Sprintf("parameter %s already defined", param_name.Value), param_name.Position)
 		}
 
 		param_names[param_name.Value] = true
@@ -614,33 +611,37 @@ func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []error) {
 	// expect closing parenthesis
 	_, err = p.Expect(lexer.Punctuator, ")")
 	if err != nil {
-		errs = append(errs, err)
+		return nil, err
 	}
 
 	// parse function body
-	f_body, body_parse_errors := p.parseBlockExpression()
-	errs = append(errs, body_parse_errors...)
+	f_body, err = p.parseBlockExpression()
+	if err != nil {
+		return nil, err
+	}
 
-	return ast.FunctionDeclaration{
+	return &ast.FunctionDeclaration{
 		Identifier: f_ident,
 		TypeName:   f_type_name,
 		Parameters: f_params,
 		Body:       f_body,
-	}, errs
+	}, nil
 }
 
-func (p *Parser) Parse() (ast.Program, []error) {
-	res := ast.Program{}
+func (p *Parser) Parse() (*ast.Program, error) {
 	if len(p.tokens) == 0 {
-		return res, []error{errors.New("empty file")}
+		return nil, errors.New("empty file")
 	}
 
-	errors := []error{}
+	prog := &ast.Program{}
+
 	for p.head < len(p.tokens) {
-		d, errs := p.ParseFunctionDeclaration()
-		res.Declarations = append(res.Declarations, d)
-		errors = append(errors, errs...)
+		d, err := p.ParseFunctionDeclaration()
+		if err != nil {
+			return nil, err
+		}
+		prog.Declarations = append(prog.Declarations, *d)
 	}
 
-	return res, errors
+	return prog, nil
 }

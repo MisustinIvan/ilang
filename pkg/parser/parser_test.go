@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"fmt"
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
 	"testing"
@@ -16,12 +17,12 @@ unit test(bool a, int b) {
 
 	l := lexer.NewLexer(test_program)
 
-	err := l.Lex()
+	tokens, err := l.Lex()
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatal(err)
 	}
 
-	p := parser.NewParser(l.Tokens())
+	p := parser.NewParser(tokens)
 
 	decl, _ := p.ParseFunctionDeclaration()
 	if decl.TypeName.Value != "unit" {
@@ -37,7 +38,7 @@ unit test(bool a, int b) {
 	}
 
 	if decl.Parameters[0].Name.Value != "a" {
-		t.Fatalf("Expected parameter name b, got %s\n", decl.Parameters[0].Name)
+		t.Fatalf("Expected parameter name b, got %s\n", decl.Parameters[0].Name.Value)
 	}
 
 	if decl.Parameters[0].TypeName.Value != "bool" {
@@ -55,12 +56,12 @@ void test(int b) {
 
 	l := lexer.NewLexer(test_program)
 
-	err := l.Lex()
+	tokens, err := l.Lex()
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatal(err)
 	}
 
-	p := parser.NewParser(l.Tokens())
+	p := parser.NewParser(tokens)
 	p.Expect(lexer.Identifier, "void")
 	p.Expect(lexer.Identifier, "test")
 	p.Expect(lexer.Punctuator, "(")
@@ -81,4 +82,29 @@ void test(int b) {
 	p.Expect(lexer.Punctuator, ")")
 	p.Expect(lexer.Punctuator, ";")
 	p.Expect(lexer.Punctuator, "}")
+}
+
+func TestParserError(t *testing.T) {
+	const test_program = `
+test(int b) {
+    int a == 10;
+    printf("%d", a);
+}
+`
+	lexer := lexer.NewLexer(test_program)
+	tokens, err := lexer.Lex()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parser := parser.NewParser(tokens)
+	_, err = parser.Parse()
+	if err == nil {
+		t.Logf("got no parse error")
+		t.Fail()
+	}
+
+	fmt.Printf("err: %v\n", err)
+
+	t.Fail()
 }
