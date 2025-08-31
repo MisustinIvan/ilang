@@ -16,9 +16,8 @@ type FunctionDeclaration struct {
 }
 
 type ParameterDefinition struct {
-	Name     string
-	Type     Type
-	Position lexer.Position
+	Name     *IdentifierExpression
+	TypeName *IdentifierExpression
 }
 
 type Expression interface {
