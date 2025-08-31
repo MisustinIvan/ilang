@@ -34,6 +34,7 @@ func (p *Program) Accept(v AstVisitor) error {
 }
 
 type FunctionDeclaration struct {
+	Type       Type
 	Identifier *IdentifierExpression
 	TypeName   *IdentifierExpression
 	Parameters []ParameterDefinition
