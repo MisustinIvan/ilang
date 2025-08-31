@@ -1,7 +1,10 @@
 int main() {
+    c = 25;
+    c = 25;
     let a : int = 69;
     let b : int = 420;
     if true {
+        let a : string = "test";
         let a : string = "test";
         a
     };

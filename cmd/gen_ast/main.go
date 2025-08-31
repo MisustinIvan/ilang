@@ -5,6 +5,7 @@ import (
 	"io"
 	"lang/pkg/ast_visualizer"
 	"lang/pkg/lexer"
+	"lang/pkg/name_resolver"
 	"lang/pkg/parser"
 	"log"
 	"os"
@@ -52,6 +53,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
+
+	name_resolver := name_resolver.NewNameResolver(prog)
+	prog, err = name_resolver.ResolveNames()
+	log.Printf("Errors:\n%s\n", err.Error())
 
 	ast_visualizer.ExportASTToGraphviz(prog, output_file)
 
