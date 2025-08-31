@@ -23,7 +23,9 @@ type ParameterDefinition struct {
 type Expression interface {
 	expression_mark()
 	GetType() Type
+	SetType(Type)
 	GetPosition() lexer.Position
+	SetPosition(lexer.Position)
 }
 
 type Expression_i struct {
@@ -31,9 +33,11 @@ type Expression_i struct {
 	Position lexer.Position
 }
 
-func (e *Expression_i) expression_mark()            {}
-func (e *Expression_i) GetType() Type               { return e.Type }
-func (e *Expression_i) GetPosition() lexer.Position { return e.Position }
+func (e *Expression_i) expression_mark()             {}
+func (e *Expression_i) GetType() Type                { return e.Type }
+func (e *Expression_i) GetPosition() lexer.Position  { return e.Position }
+func (e *Expression_i) SetType(t Type)               { e.Type = t }
+func (e *Expression_i) SetPosition(p lexer.Position) { e.Position = p }
 
 type SimpleExpression interface {
 	simple_expression_mark()
