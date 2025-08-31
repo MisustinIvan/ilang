@@ -1,5 +1,7 @@
 package ast
 
+import "fmt"
+
 // Contains very basic definitions of types, will be reworked
 
 type Type int
@@ -48,19 +50,19 @@ func (t Type) String() string {
 	}
 }
 
-func ParseType(val string) (Type, bool) {
+func ParseType(val string) (Type, error) {
 	switch val {
 	case "int":
-		return Integer, true
+		return Integer, nil
 	case "float":
-		return Float, true
+		return Float, nil
 	case "bool":
-		return Boolean, true
+		return Boolean, nil
 	case "string":
-		return String, true
+		return String, nil
 	case "unit":
-		return Unit, true
+		return Unit, nil
 	default:
-		return Undefined, false
+		return Undefined, fmt.Errorf("invalid type: %s", val)
 	}
 }
