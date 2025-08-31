@@ -1,3 +1,9 @@
+/*
+Package parser implements a recursive-descent parser for ilang.
+
+The parser consumes a slice of tokens produced by the lexer and produces an
+AST representation of the program.
+*/
 package parser
 
 import (
@@ -104,6 +110,7 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error
 	return tk, nil
 }
 
+// parseIdentifier parses an identifier starting at the head.
 func (p *Parser) parseIdentifier() (*ast.IdentifierExpression, error) {
 	ident_tk, err := p.Expect(lexer.Identifier, "")
 	if err != nil {
@@ -118,6 +125,10 @@ func (p *Parser) parseIdentifier() (*ast.IdentifierExpression, error) {
 	return id, nil
 }
 
+// parseBindExpression parses a bind expression starting at the head.
+// According to the grammar:
+//
+// bind_expr   ::= 'let' ident ':' type '=' simple_expr
 func (p *Parser) parseBindExpression() (*ast.BindExpression, error) {
 	var e_ident *ast.IdentifierExpression
 	var e_type_name *ast.IdentifierExpression
@@ -165,6 +176,10 @@ func (p *Parser) parseBindExpression() (*ast.BindExpression, error) {
 	return &r, nil
 }
 
+// parseReturnExpression parses a return expression starting at the head.
+// According to the grammar:
+//
+// return_expr ::= 'return' simple_expr
 func (p *Parser) parseReturnExpression() (*ast.ReturnExpression, error) {
 	var e_value ast.SimpleExpression
 	var expr_start lexer.Position
@@ -187,6 +202,10 @@ func (p *Parser) parseReturnExpression() (*ast.ReturnExpression, error) {
 	return r, nil
 }
 
+// parseAssignmentExpression parses an assignment expression starting at the head.
+// According to the grammar:
+//
+// assg_expr   ::= ident '=' simple_expr
 func (p *Parser) parseAssignmentExpression() (*ast.AssignmentExpression, error) {
 	var expr_start lexer.Position
 	var e_ident *ast.IdentifierExpression
@@ -216,11 +235,13 @@ func (p *Parser) parseAssignmentExpression() (*ast.AssignmentExpression, error) 
 	return &r, nil
 }
 
+// parseSimpleExpression parses a simple expression starting at the current parser head.
+// According to the grammar:
+//
+//	simple_expr ::= primary
+//	              | bin_expr
+//	              | unary_expr
 func (p *Parser) parseSimpleExpression() (ast.SimpleExpression, error) {
-	// according to grammar
-	// simple_expr ::= primary
-	//               | bin_expr
-	//               | unary_expr
 
 	// the simplest case is the unary expression
 	if p.matchCurrent(lexer.Operator, "") {
@@ -260,6 +281,8 @@ func (p *Parser) parseSimpleExpression() (ast.SimpleExpression, error) {
 	return primary, nil
 }
 
+// parseLiteral parses a literal value starting at the head without determining
+// its type, that step is left to be done further in the compilation process.
 func (p *Parser) parseLiteral() (*ast.LiteralExpression, error) {
 	var expr_start lexer.Position
 	var value string
@@ -279,6 +302,10 @@ func (p *Parser) parseLiteral() (*ast.LiteralExpression, error) {
 	return literal, nil
 }
 
+// parseFunctionCall parses a function call expression starting at the head.
+// According to the grammar:
+//
+// call_expr   ::= ident '(' [ simple_expr { ',' simple_expr } ] ')'
 func (p *Parser) parseFunctionCall() (*ast.CallExpression, error) {
 	var expr_start lexer.Position
 	var ident *ast.IdentifierExpression
@@ -328,6 +355,10 @@ func (p *Parser) parseFunctionCall() (*ast.CallExpression, error) {
 	return &r, nil
 }
 
+// parseSeparatedExpression parses a separated expression starting at the head.
+// According to the grammar:
+//
+// sep_expr    ::= '(' simple_expr ')'
 func (p *Parser) parseSeparatedExpression() (*ast.SeparatedExpression, error) {
 	var expr_start lexer.Position
 	var body ast.SimpleExpression
@@ -355,11 +386,15 @@ func (p *Parser) parseSeparatedExpression() (*ast.SeparatedExpression, error) {
 	return e, nil
 }
 
+// parseConditionalExpression parses a conditional expression starting at the head.
+// According to the grammar:
+//
+// con_expr    ::= 'if' simple_expr simple_expr { 'else' simple_expr }
 func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, error) {
 	var expr_start lexer.Position
 	var condition ast.SimpleExpression
-	var if_body *ast.BlockExpression
-	var else_body *ast.BlockExpression
+	var if_body ast.SimpleExpression
+	var else_body ast.SimpleExpression
 
 	if_tk, err := p.Expect(lexer.Keyword, "if")
 	if err != nil {
@@ -372,7 +407,7 @@ func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, error
 		return nil, err
 	}
 
-	if_body, err = p.parseBlockExpression()
+	if_body, err = p.parseSimpleExpression()
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +415,7 @@ func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, error
 	if p.matchNext(lexer.Keyword, "else", 0) {
 		// consume 'else'
 		p.next()
-		else_body, err = p.parseBlockExpression()
+		else_body, err = p.parseSimpleExpression()
 		if err != nil {
 			return nil, err
 		}
@@ -396,14 +431,16 @@ func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, error
 	return e, nil
 }
 
+// parsePrimaryExpression parses a primary expression starting at the head.
+// According to the grammar:
+//
+//	primary ::= literal
+//	          | ident
+//	          | call_expr
+//	          | block_expr
+//	          | sep_expr
+//	          | con_expr
 func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, error) {
-	// according to grammar:
-	// primary ::= literal
-	//           | ident
-	//           | call_expr
-	//           | block_expr
-	//           | sep_expr
-	//           | con_expr
 
 	// parse literal
 	if p.matchNext(lexer.Literal, "", 0) {
@@ -444,6 +481,12 @@ func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, error) {
 	return nil, parseError("unknown primary expression", pos)
 }
 
+// parseUnaryExpression parses an unary expression starting at the head.
+// According to the grammar:
+//
+// unary_expr  ::= unop primary
+//
+// unop        ::= '-' | '!'
 func (p *Parser) parseUnaryExpression() (*ast.UnaryExpression, error) {
 	var expr_start lexer.Position
 	var operator ast.UnaryOperator
@@ -473,12 +516,14 @@ func (p *Parser) parseUnaryExpression() (*ast.UnaryExpression, error) {
 	return &r, err
 }
 
+// parseExpression parses an expression starting at the head.
+// According to grammar:
+//
+//	expr ::= bind_expr
+//	       | return_expr
+//	       | assg_expr
+//	       | simple_expr
 func (p *Parser) parseExpression() (ast.Expression, error) {
-	// according to grammar:
-	// expr : bind_expr
-	//      | return_expr
-	//      | assg_expr
-	//      | simple_expr
 
 	// parse bind expression
 	if p.matchNext(lexer.Keyword, "let", 0) {
@@ -499,8 +544,10 @@ func (p *Parser) parseExpression() (ast.Expression, error) {
 	return p.parseSimpleExpression()
 }
 
-// parseBlockExpression parses a block expression, returning it and all the
-// errors it encountered along the way.
+// parseBlockExpression parses a block expression starting at the head.
+// According to the grammar:
+//
+// block_expr  ::= '{' { expr ';' } [ expr ] '}'
 func (p *Parser) parseBlockExpression() (*ast.BlockExpression, error) {
 	var expr_start lexer.Position
 	if tk := p.peek(); tk != nil {
@@ -546,8 +593,12 @@ func (p *Parser) parseBlockExpression() (*ast.BlockExpression, error) {
 }
 
 // ParseFunctionDeclaration parses a function declaration along with its body
-// starting at the position of the Parser head. Any errors encountered along
-// the way will be returned.
+// starting at the the head.
+// According to the grammar:
+//
+// fun_decl     ::= type ident '(' parm_types ')' block_expr
+//
+// parm_types   ::= [ type ident { ',' type ident } ]
 func (p *Parser) ParseFunctionDeclaration() (*ast.FunctionDeclaration, error) {
 	var f_ident *ast.IdentifierExpression
 	var f_type_name *ast.IdentifierExpression
@@ -628,6 +679,10 @@ func (p *Parser) ParseFunctionDeclaration() (*ast.FunctionDeclaration, error) {
 	}, nil
 }
 
+// Parse parses the tokens in the parser and returns an ast.Program.
+// According to the grammar:
+//
+// prog         ::= { fun_decl }
 func (p *Parser) Parse() (*ast.Program, error) {
 	if len(p.tokens) == 0 {
 		return nil, errors.New("empty file")

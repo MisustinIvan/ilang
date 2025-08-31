@@ -94,8 +94,8 @@ type SeparatedExpression struct {
 type ConditionalExpression struct {
 	PrimaryExpression_i
 	Condition SimpleExpression
-	IfBody    *BlockExpression
-	ElseBody  *BlockExpression
+	IfBody    SimpleExpression
+	ElseBody  SimpleExpression
 }
 
 // next are simple expressions
