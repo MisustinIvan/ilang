@@ -4,8 +4,33 @@ import "lang/pkg/lexer"
 
 // Contains definitions for ast nodes as defined by the grammar
 
+type AstVisitor interface {
+	VisitProgram(p *Program) error
+	VisitFunctionDeclaration(d *FunctionDeclaration) error
+	VisitParameterDefinition(d *ParameterDefinition) error
+	VisitBind(e *BindExpression) error
+	VisitReturn(e *ReturnExpression) error
+	VisitBinary(e *BinaryExpression) error
+	VisitLiteral(e *LiteralExpression) error
+	VisitIdentifier(e *IdentifierExpression) error
+	VisitCall(e *CallExpression) error
+	VisitBlock(e *BlockExpression) error
+	VisitSeparated(e *SeparatedExpression) error
+	VisitUnary(e *UnaryExpression) error
+	VisitConditional(e *ConditionalExpression) error
+	VisitAssignment(e *AssignmentExpression) error
+}
+
+type Node interface {
+	Accept(AstVisitor) error
+}
+
 type Program struct {
 	Declarations []FunctionDeclaration
+}
+
+func (p *Program) Accept(v AstVisitor) error {
+	return v.VisitProgram(p)
 }
 
 type FunctionDeclaration struct {
@@ -15,12 +40,21 @@ type FunctionDeclaration struct {
 	Body       *BlockExpression
 }
 
+func (d *FunctionDeclaration) Accept(v AstVisitor) error {
+	return v.VisitFunctionDeclaration(d)
+}
+
 type ParameterDefinition struct {
 	Name     *IdentifierExpression
 	TypeName *IdentifierExpression
 }
 
+func (d *ParameterDefinition) Accept(v AstVisitor) error {
+	return v.VisitParameterDefinition(d)
+}
+
 type Expression interface {
+	Node
 	expression_mark()
 	GetType() Type
 	SetType(Type)
@@ -69,9 +103,18 @@ type LiteralExpression struct {
 	Value string
 }
 
+func (e *LiteralExpression) Accept(v AstVisitor) error {
+	return v.VisitLiteral(e)
+}
+
 type IdentifierExpression struct {
 	PrimaryExpression_i
-	Value string
+	Value    string
+	Resolved *IdentifierExpression
+}
+
+func (e *IdentifierExpression) Accept(v AstVisitor) error {
+	return v.VisitIdentifier(e)
 }
 
 type CallExpression struct {
@@ -80,10 +123,18 @@ type CallExpression struct {
 	Params     []SimpleExpression
 }
 
+func (e *CallExpression) Accept(v AstVisitor) error {
+	return v.VisitCall(e)
+}
+
 type BlockExpression struct {
 	PrimaryExpression_i
 	Body           []Expression
 	ImplicitReturn Expression
+}
+
+func (e *BlockExpression) Accept(v AstVisitor) error {
+	return v.VisitBlock(e)
 }
 
 type SeparatedExpression struct {
@@ -91,11 +142,19 @@ type SeparatedExpression struct {
 	Body SimpleExpression
 }
 
+func (e *SeparatedExpression) Accept(v AstVisitor) error {
+	return v.VisitSeparated(e)
+}
+
 type ConditionalExpression struct {
 	PrimaryExpression_i
 	Condition SimpleExpression
 	IfBody    SimpleExpression
 	ElseBody  SimpleExpression
+}
+
+func (e *ConditionalExpression) Accept(v AstVisitor) error {
+	return v.VisitConditional(e)
 }
 
 // next are simple expressions
@@ -107,10 +166,18 @@ type BinaryExpression struct {
 	Right    SimpleExpression
 }
 
+func (e *BinaryExpression) Accept(v AstVisitor) error {
+	return v.VisitBinary(e)
+}
+
 type UnaryExpression struct {
 	SimpleExpression_i
 	Operator UnaryOperator
 	Value    PrimaryExpression
+}
+
+func (e *UnaryExpression) Accept(v AstVisitor) error {
+	return v.VisitUnary(e)
 }
 
 // next are highest level expressions
@@ -122,13 +189,25 @@ type BindExpression struct {
 	Value      SimpleExpression
 }
 
+func (e *BindExpression) Accept(v AstVisitor) error {
+	return v.VisitBind(e)
+}
+
 type ReturnExpression struct {
 	Expression_i
 	Value SimpleExpression
+}
+
+func (e *ReturnExpression) Accept(v AstVisitor) error {
+	return v.VisitReturn(e)
 }
 
 type AssignmentExpression struct {
 	Expression_i
 	Identifier *IdentifierExpression
 	Value      SimpleExpression
+}
+
+func (e *AssignmentExpression) Accept(v AstVisitor) error {
+	return v.VisitAssignment(e)
 }
