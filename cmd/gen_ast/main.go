@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
-	"lang/pkg/ast"
-	"lang/pkg/generator"
+	"lang/pkg/ast_visualizer"
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
+	"log"
 	"os"
 )
 
@@ -25,37 +25,34 @@ func main() {
 
 	source_file, err := os.Open(source_file_name)
 	if err != nil {
-		fmt.Printf("Error: %s", err)
-		os.Exit(-1)
+		log.Fatalf("Error: %s", err)
 	}
 	defer source_file.Close()
 
 	output_file, err := os.OpenFile(output_file_name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		fmt.Printf("Error: %s", err)
-		os.Exit(-1)
+		log.Fatalf("Error: %s", err)
 	}
 	defer output_file.Close()
 
 	source_code, err := io.ReadAll(source_file)
 	if err != nil {
-		fmt.Printf("Error: %s", err)
-		os.Exit(-1)
+		log.Fatalf("Error: %s", err)
 	}
 
 	l := lexer.NewLexer(string(source_code))
-	err = l.Lex()
+	tokens, err := l.Lex()
 	if err != nil {
-		fmt.Printf("Error: %s", err)
-		os.Exit(-1)
+		log.Fatalf("Error: %s", err)
 	}
 
-	p := parser.NewParser(l.Tokens())
-	prog := p.Parse()
-	g := generator.NewGenerator(prog)
-	prog = g.Generate()
+	p := parser.NewParser(tokens)
+	prog, err := p.Parse()
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
 
-	ast.ExportASTToGraphviz(&prog, output_file)
+	ast_visualizer.ExportASTToGraphviz(prog, output_file)
 
 	fmt.Printf("Successfully saved output to %s\n", output_file_name)
 }
