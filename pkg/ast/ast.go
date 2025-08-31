@@ -10,6 +10,7 @@ type Program struct {
 
 type FunctionDeclaration struct {
 	Identifier *IdentifierExpression
+	TypeName   *IdentifierExpression
 	Parameters []ParameterDefinition
 	Body       *BlockExpression
 }
