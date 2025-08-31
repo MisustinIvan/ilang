@@ -18,3 +18,7 @@ int test(int a) {
     };
     a
 }
+
+int test2() {
+	if true 69 else 420
+}
