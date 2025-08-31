@@ -114,6 +114,7 @@ type UnaryExpression struct {
 type BindExpression struct {
 	Expression_i
 	Identifier *IdentifierExpression
+	TypeName   *IdentifierExpression
 	Value      SimpleExpression
 }
 
