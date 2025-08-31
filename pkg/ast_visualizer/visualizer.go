@@ -165,12 +165,12 @@ func writeExpression(expr ast.Expression, parent string, w io.Writer) {
 		if_body_id := nextNodeID()
 		fmt.Fprintf(w, `  %s [label="IfBody"]`+"\n", if_body_id)
 		fmt.Fprintf(w, `  %s -> %s`+"\n", id, if_body_id)
-		writeBlockExpression(e.IfBody, if_body_id, w)
+		writeExpression(e.IfBody, if_body_id, w)
 		if e.ElseBody != nil {
 			else_body_id := nextNodeID()
 			fmt.Fprintf(w, `  %s [label="ElseBody"]`+"\n", else_body_id)
 			fmt.Fprintf(w, `  %s -> %s`+"\n", id, else_body_id)
-			writeBlockExpression(e.ElseBody, else_body_id, w)
+			writeExpression(e.ElseBody, else_body_id, w)
 		}
 	case *ast.BlockExpression:
 		writeBlockExpression(e, parent, w)
