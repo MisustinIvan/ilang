@@ -15,7 +15,7 @@ func test() {
 func TestLexer(t *testing.T) {
 	l := lexer.NewLexer(test_program)
 
-	err := l.Lex()
+	_, err := l.Lex()
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
