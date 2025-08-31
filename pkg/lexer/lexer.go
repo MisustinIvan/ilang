@@ -116,7 +116,7 @@ func longestMatch(token string, valid map[string]bool) (string, int) {
 	return match, length
 }
 
-func (l *Lexer) Lex() error {
+func (l *Lexer) Lex() ([]Token, error) {
 	line := 0
 	column := 0
 	for l.head < len(l.input) {
@@ -164,7 +164,7 @@ func (l *Lexer) Lex() error {
 			}
 			l.head++ //include end quote
 			if l.head >= len(l.input) {
-				return NewUnterminatedStringLiteral(l.input[:start])
+				return nil, NewUnterminatedStringLiteral(l.input[:start])
 			}
 			value := l.input[start:l.head]
 			l.output = append(l.output, Token{
@@ -223,7 +223,7 @@ func (l *Lexer) Lex() error {
 			punctuator_match, punctuator_length := longestMatch(value, PunctuatorTokens)
 
 			if operator_length == 0 && punctuator_length == 0 {
-				return NewUnexpectedTokenError(value)
+				return nil, NewUnexpectedTokenError(value)
 			}
 
 			if operator_length > punctuator_length {
@@ -250,15 +250,5 @@ func (l *Lexer) Lex() error {
 		}
 	}
 
-	return nil
-}
-
-func (l *Lexer) Tokens() []Token {
-	return l.output
-}
-
-func (l *Lexer) PrintTokens() {
-	for _, t := range l.output {
-		fmt.Println(t.String())
-	}
+	return l.output, nil
 }
