@@ -1,7 +1,6 @@
 package parser_test
 
 import (
-	"lang/pkg/ast"
 	"lang/pkg/lexer"
 	"lang/pkg/parser"
 	"testing"
@@ -25,12 +24,12 @@ unit test(bool a, int b) {
 	p := parser.NewParser(l.Tokens())
 
 	decl, _ := p.ParseFunctionDeclaration()
-	if decl.Type != ast.Unit {
-		t.Fatalf("Expected type Void, got %s\n", decl.Type.String())
+	if decl.TypeName.Value != "unit" {
+		t.Fatalf("Expected type Void, got %s\n", decl.TypeName.Value)
 	}
 
-	if decl.Name.Value != "test" {
-		t.Fatalf("Expected function name test, got %s\n", decl.Name.Value)
+	if decl.Identifier.Value != "test" {
+		t.Fatalf("Expected function name test, got %s\n", decl.Identifier.Value)
 	}
 
 	if len(decl.Parameters) != 2 {
@@ -38,11 +37,11 @@ unit test(bool a, int b) {
 	}
 
 	if decl.Parameters[0].Name.Value != "a" {
-		t.Fatalf("Expected parameter name b, got %s\n", decl.Parameters[0].Name.Value)
+		t.Fatalf("Expected parameter name b, got %s\n", decl.Parameters[0].Name)
 	}
 
-	if decl.Parameters[0].Type != ast.Boolean {
-		t.Fatalf("Expected parameter type Boolean, got %s\n", decl.Parameters[0].Type.String())
+	if decl.Parameters[0].TypeName.Value != "bool" {
+		t.Fatalf("Expected parameter type Boolean, got %s\n", decl.Parameters[0].TypeName.Value)
 	}
 }
 

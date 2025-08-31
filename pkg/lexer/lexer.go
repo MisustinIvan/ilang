@@ -33,18 +33,18 @@ const (
 	Punctuator
 )
 
-type TokenPosition struct {
+type Position struct {
 	Line   int
 	Column int
 }
 
-func (p *TokenPosition) String() string {
+func (p *Position) String() string {
 	return fmt.Sprintf("line %d column %d ", p.Line+1, p.Column+1)
 }
 
 type Token struct {
 	Kind     TokenKind
-	Position TokenPosition
+	Position Position
 	Value    string
 }
 
@@ -145,7 +145,7 @@ func (l *Lexer) Lex() error {
 			l.output = append(l.output, Token{
 				Kind:  Literal,
 				Value: value,
-				Position: TokenPosition{
+				Position: Position{
 					Line:   line,
 					Column: start_column,
 				},
@@ -170,7 +170,7 @@ func (l *Lexer) Lex() error {
 			l.output = append(l.output, Token{
 				Kind:  Literal,
 				Value: value,
-				Position: TokenPosition{
+				Position: Position{
 					Line:   line,
 					Column: start_column,
 				},
@@ -200,7 +200,7 @@ func (l *Lexer) Lex() error {
 			l.output = append(l.output, Token{
 				Kind:  kind,
 				Value: value,
-				Position: TokenPosition{
+				Position: Position{
 					Line:   line,
 					Column: start_column,
 				},
@@ -241,7 +241,7 @@ func (l *Lexer) Lex() error {
 			l.output = append(l.output, Token{
 				Kind:  kind,
 				Value: value,
-				Position: TokenPosition{
+				Position: Position{
 					Line:   line,
 					Column: start_column,
 				},

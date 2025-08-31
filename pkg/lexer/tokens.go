@@ -3,14 +3,14 @@ package lexer
 var PunctuatorTokens = map[string]bool{
 	"(": true,
 	")": true,
-	"[": true,
-	"]": true,
+	// "[": true,
+	// "]": true,
 	"{": true,
 	"}": true,
 	";": true,
 	":": true,
 	",": true,
-	".": true,
+	// ".": true,
 }
 
 var KeywordTokens = map[string]bool{
@@ -18,9 +18,9 @@ var KeywordTokens = map[string]bool{
 	"let":    true,
 	"if":     true,
 	"else":   true,
-	"for":    true,
-	"break":  true,
-	"extern": true,
+	// "for":    true,
+	// "break":  true,
+	// "extern": true,
 }
 
 var OperatorTokens = map[string]bool{

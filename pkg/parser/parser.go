@@ -1,571 +1,646 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"lang/pkg/ast"
 	"lang/pkg/lexer"
-	"os"
 )
 
+// ParseError represents a parsing error with position info.
 type ParseError struct {
 	Message  string
-	Position lexer.TokenPosition
+	Position lexer.Position
 }
 
 func (e ParseError) Error() string {
 	return fmt.Sprintf("%s at %s", e.Message, e.Position.String())
 }
 
-func parseError(msg string, pos lexer.TokenPosition) ParseError {
+// parseError creates a new ParseError.
+func parseError(msg string, pos lexer.Position) ParseError {
 	return ParseError{
 		Message:  msg,
 		Position: pos,
 	}
 }
 
+// Parser holds tokens and the current parsing position.
 type Parser struct {
 	tokens []lexer.Token
 	head   int
-	errors []ParseError
 }
 
-func (p *Parser) Report() {
-	for _, e := range p.errors {
-		fmt.Printf("%s\n", e.Error())
-	}
-}
-
-func NewParser(tokens []lexer.Token) Parser {
-	return Parser{
+// NewParser creates a new parser from a token slice.
+func NewParser(tokens []lexer.Token) *Parser {
+	return &Parser{
 		tokens: tokens,
 		head:   0,
 	}
 }
 
-func (p *Parser) Peek() *lexer.Token {
+// peek returns the current token without advancing.
+func (p *Parser) peek() *lexer.Token {
 	if p.head >= len(p.tokens) {
 		return nil
 	}
 	return &p.tokens[p.head]
 }
 
-func (p *Parser) PeekNext(offset int) *lexer.Token {
+// peekNext returns the token at an offset to the current position.
+func (p *Parser) peekNext(offset int) *lexer.Token {
 	if p.head+offset >= len(p.tokens) {
 		return nil
 	}
 	return &p.tokens[p.head+offset]
 }
 
-func (p *Parser) Next() lexer.Token {
+// next returns the current token and advances the parser.
+// Returns an error if at EOF.
+func (p *Parser) next() (*lexer.Token, error) {
 	if p.head >= len(p.tokens) {
-		fmt.Printf("Unexpected EOF")
-		os.Exit(-1)
-	}
-	tk := p.tokens[p.head]
-	p.head++
-	return tk
-}
-
-// can exit
-func (p *Parser) MatchCurrent(kind lexer.TokenKind, value string) bool {
-	c := p.Peek()
-	if c == nil {
-		fmt.Printf("Unexpected EOF\n")
-		os.Exit(-1)
-	}
-	if kind == c.Kind && (value == c.Value || value == "") {
-		return true
-	}
-	return false
-}
-
-// can't exit
-func (p *Parser) MatchNext(kind lexer.TokenKind, value string, offset int) bool {
-	c := p.PeekNext(offset)
-	if c == nil {
-		return false
-	}
-	if kind == c.Kind && (value == c.Value || value == "") {
-		return true
-	}
-	return false
-}
-
-func (p *Parser) Expect(kind lexer.TokenKind, value string) lexer.Token {
-	if p.head >= len(p.tokens) {
-		fmt.Printf("Unexpected EOF, expected %s %s\n", kind.String(), value)
-		os.Exit(-1)
-	}
-
-	c := p.Next()
-
-	if kind != c.Kind || (value != c.Value && value != "") {
-		if value != "" {
-			fmt.Printf("Expected %s %s, got %s \"%s\" at %s\n", kind.String(), value, c.Kind.String(), c.Value, c.Position.String())
-		} else {
-			fmt.Printf("Expected any %s, got %s \"%s\" at %s\n", kind.String(), c.Kind.String(), c.Value, c.Position.String())
+		if p.head-1 >= 0 {
+			prevTk := p.tokens[p.head-1]
+			return nil, parseError("unexpected EOF", prevTk.Position)
 		}
-		os.Exit(-1)
+		return nil, fmt.Errorf("empty file")
 	}
-	return c
+	tk := &p.tokens[p.head]
+	p.head++
+	return tk, nil
 }
 
-func (p *Parser) ParseBindExpression() (*ast.BindExpression, []ParseError) {
-	errs := []ParseError{}
-	var e_left ast.Identifier
-	var e_type ast.Type
-	var e_right ast.Expression
+// matchCurrent checks if the current token matches the kind and value.
+func (p *Parser) matchCurrent(kind lexer.TokenKind, value string) bool {
+	c := p.peek()
+	return c != nil && kind == c.Kind && (value == "" || value == c.Value)
+}
 
-	expr_start := p.Peek().Position
-	p.Expect(lexer.Keyword, "let")
+// matchNext checks if the token at an offset to the current position matches kind and value.
+func (p *Parser) matchNext(kind lexer.TokenKind, value string, offset int) bool {
+	c := p.peekNext(offset)
+	return c != nil && kind == c.Kind && (value == "" || value == c.Value)
+}
 
-	left_tk := p.Expect(lexer.Identifier, "")
-	e_left = ast.Identifier{
-		Value: left_tk.Value,
+// Expect returns the current token and advances the head
+// if it matches kind and value, otherwise returns an error.
+func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error) {
+	tk, err := p.next()
+	if err != nil {
+		return nil, err
+	}
+	if tk.Kind != kind || (value != "" && tk.Value != value) {
+		return nil, parseError(
+			fmt.Sprintf("expected %s '%s', got %s '%s'", kind.String(), value, tk.Kind.String(), tk.Value),
+			tk.Position,
+		)
+	}
+	return tk, nil
+}
+
+func (p *Parser) parseIdentifier() (*ast.IdentifierExpression, error) {
+	ident_tk, err := p.Expect(lexer.Identifier, "")
+	if err != nil {
+		return nil, err
 	}
 
-	p.Expect(lexer.Punctuator, ":")
+	id := &ast.IdentifierExpression{
+		Value: ident_tk.Value,
+	}
+	id.Position = ident_tk.Position
 
-	type_tk := p.Expect(lexer.Identifier, "")
-	e_type, ok := ast.ParseType(type_tk.Value)
-	if !ok {
-		errs = append(errs, parseError(fmt.Sprintf("unknown type %s", type_tk.Value), type_tk.Position))
+	return id, nil
+}
+
+func (p *Parser) parseBindExpression() (*ast.BindExpression, []error) {
+	errs := []error{}
+	var e_ident *ast.IdentifierExpression
+	var e_type_name *ast.IdentifierExpression
+	var e_value ast.SimpleExpression
+	var expr_start lexer.Position
+
+	first_tk, err := p.Expect(lexer.Keyword, "let")
+	if err != nil {
+		errs = append(errs, err)
+	}
+	expr_start = first_tk.Position
+
+	e_ident, err = p.parseIdentifier()
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	p.Expect(lexer.Operator, "=")
+	_, err = p.Expect(lexer.Punctuator, ":")
+	if err != nil {
+		errs = append(errs, err)
+	}
 
-	e_right, r_errs := p.ParseExpression()
+	e_type_name, err = p.parseIdentifier()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	_, err = p.Expect(lexer.Operator, "=")
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	e_value, r_errs := p.parseSimpleExpression()
 	errs = append(errs, r_errs...)
 
 	r := ast.BindExpression{
-		Left:  e_left,
-		Right: e_right,
+		Identifier: e_ident,
+		TypeName:   e_type_name,
+		Value:      e_value,
 	}
-	r.Type = e_type
-	r.TokenPosition = expr_start
+	r.Position = expr_start
 
 	return &r, errs
 }
 
-func (p *Parser) ParseReturnExpression() (*ast.ReturnExpression, []ParseError) {
-	var e_value ast.Expression
-	expr_start := p.Peek().Position
+func (p *Parser) parseReturnExpression() (*ast.ReturnExpression, []error) {
+	var errs []error
+	var e_value ast.SimpleExpression
+	var expr_start lexer.Position
 
-	p.Expect(lexer.Keyword, "return")
-
-	e_value, errs := p.ParseExpression()
-
-	r := ast.ReturnExpression{Value: e_value}
-	r.TokenPosition = expr_start
-	return &r, errs
-}
-
-func (p *Parser) ParseAssignmentExpression() (*ast.AssignmentExpression, []ParseError) {
-	expr_start := p.Peek().Position
-	var e_left ast.Identifier
-	var e_right ast.Expression
-
-	left_tk := p.Expect(lexer.Identifier, "")
-	e_left = ast.Identifier{
-		Value: left_tk.Value,
+	ret_tk, err := p.Expect(lexer.Keyword, "return")
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if ret_tk != nil {
+		expr_start = ret_tk.Position
 	}
 
-	p.Expect(lexer.Operator, "=")
+	e_value, e_errs := p.parseSimpleExpression()
+	errs = append(errs, e_errs...)
 
-	e_right, errs := p.ParseExpression()
+	r := &ast.ReturnExpression{
+		Value: e_value,
+	}
+	r.Position = expr_start
+	return r, errs
+}
+
+func (p *Parser) parseAssignmentExpression() (*ast.AssignmentExpression, []error) {
+	var errs []error
+	var expr_start lexer.Position
+	var e_ident *ast.IdentifierExpression
+	var e_value ast.SimpleExpression
+
+	e_ident, err := p.parseIdentifier()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if e_ident != nil {
+		expr_start = e_ident.Position
+	}
+
+	_, err = p.Expect(lexer.Operator, "=")
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	e_value, e_errs := p.parseSimpleExpression()
+	errs = append(errs, e_errs...)
 
 	r := ast.AssignmentExpression{
-		Left:  e_left,
-		Right: e_right,
+		Identifier: e_ident,
+		Value:      e_value,
 	}
-	r.TokenPosition = expr_start
+	r.Position = expr_start
 	return &r, errs
 }
 
-func (p *Parser) ParseLiteral() (*ast.Literal, []ParseError) {
-	expr_start := p.Peek().Position
-	l_value := p.Expect(lexer.Literal, "")
-	l_type := ast.LiteralType(l_value.Value)
+func (p *Parser) parseSimpleExpression() (ast.SimpleExpression, []error) {
+	var errs []error
+	// according to grammar
+	// simple_expr ::= primary
+	//               | bin_expr
+	//               | unary_expr
 
-	r := ast.Literal{Value: l_value.Value}
-	r.Type = l_type
-	r.TokenPosition = expr_start
-	return &r, nil
+	// the simplest case is the unary expression
+	if p.matchCurrent(lexer.Operator, "") {
+		return p.parseUnaryExpression()
+	}
+
+	// then we parse a primary expression and distinguish between
+	// only a primary expression and a binary expression
+	primary, p_errs := p.parsePrimaryExpression()
+	errs = append(errs, p_errs...)
+
+	if p.matchCurrent(lexer.Operator, "") {
+		operator_tk, err := p.Expect(lexer.Operator, "")
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		operator, ok := ast.BinaryOperators[operator_tk.Value]
+		if !ok {
+			errs = append(errs, parseError(fmt.Sprintf("unknown binary operator: %s", operator_tk.Value), operator_tk.Position))
+		}
+
+		simple, s_errs := p.parseSimpleExpression()
+		errs = append(errs, s_errs...)
+
+		return &ast.BinaryExpression{
+			Left:     primary,
+			Operator: operator,
+			Right:    simple,
+		}, errs
+	}
+
+	return primary, errs
 }
 
-func (p *Parser) ParseFunctionCall() (*ast.FunctionCall, []ParseError) {
-	expr_start := p.Peek().Position
-	errs := []ParseError{}
-	name_tk := p.Expect(lexer.Identifier, "")
-	var c_params []ast.Expression
+func (p *Parser) parseLiteral() (*ast.LiteralExpression, []error) {
+	var errs []error
+	var expr_start lexer.Position
+	var value string
+
+	literal_tk, err := p.Expect(lexer.Literal, "")
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if literal_tk != nil {
+		value = literal_tk.Value
+		expr_start = literal_tk.Position
+	}
+
+	literal := &ast.LiteralExpression{
+		Value: value,
+	}
+	literal.Position = expr_start
+
+	return literal, nil
+}
+
+func (p *Parser) parseFunctionCall() (*ast.CallExpression, []error) {
+	var errs []error
+	var expr_start lexer.Position
+	var ident *ast.IdentifierExpression
+	var params []ast.SimpleExpression
+
+	ident, err := p.parseIdentifier()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if ident != nil {
+		expr_start = ident.Position
+	}
 
 	// consume bracket
-	p.Expect(lexer.Punctuator, "(")
+	_, err = p.Expect(lexer.Punctuator, "(")
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	needs_comma := false
-	for !p.MatchNext(lexer.Punctuator, ")", 0) {
+	for !p.matchNext(lexer.Punctuator, ")", 0) && p.peek() != nil {
 		if needs_comma {
-			p.Expect(lexer.Punctuator, ",")
+			_, err = p.Expect(lexer.Punctuator, ",")
+			if err != nil {
+				errs = append(errs, err)
+			}
 		} else {
 			needs_comma = true
 		}
 
-		p, p_errs := p.ParseExpression()
+		p, p_errs := p.parseSimpleExpression()
 		errs = append(errs, p_errs...)
-		c_params = append(c_params, p)
+		params = append(params, p)
 	}
 
 	// consume bracket
-	p.Expect(lexer.Punctuator, ")")
-
-	r := ast.FunctionCall{
-		Function: ast.Identifier{
-			Value: name_tk.Value,
-		},
-		Params: c_params,
+	_, err = p.Expect(lexer.Punctuator, ")")
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	r.TokenPosition = expr_start
+	r := ast.CallExpression{
+		Identifier: ident,
+		Params:     params,
+	}
+	r.Position = expr_start
 	return &r, errs
 }
 
-func (p *Parser) ParseIdentifier() (*ast.Identifier, []ParseError) {
-	expr_start := p.Peek().Position
-	id_tk := p.Expect(lexer.Identifier, "")
-	r := ast.Identifier{
-		Value: id_tk.Value,
-	}
-	r.TokenPosition = expr_start
-	return &r, nil
-}
+func (p *Parser) parseSeparatedExpression() (*ast.SeparatedExpression, []error) {
+	var errs []error
+	var expr_start lexer.Position
+	var body ast.SimpleExpression
 
-func (p *Parser) ParseSeparatedExpression() (*ast.SeparatedExpression, []ParseError) {
-	expr_start := p.Peek().Position
-	var e_value ast.Expression
-	p.Expect(lexer.Punctuator, "(")
-
-	e_value, errs := p.ParseExpression()
-
-	p.Expect(lexer.Punctuator, ")")
-
-	r := ast.SeparatedExpression{
-		Value: e_value,
-	}
-	r.TokenPosition = expr_start
-	return &r, errs
-}
-
-func (p *Parser) ParseConditionalExpression() (*ast.ConditionalExpression, []ParseError) {
-	expr_start := p.Peek().Position
-	errs := []ParseError{}
-	var e_condition ast.Expression
-	var e_if_body *ast.BlockExpression
-	var e_else_body *ast.BlockExpression = &ast.BlockExpression{
-		Body:                     []ast.Expression{},
-		ImplicitReturnExpression: nil,
+	_, err := p.Expect(lexer.Punctuator, "(")
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	p.Expect(lexer.Keyword, "if")
-
-	e_condition, c_errs := p.ParseExpression()
-	errs = append(errs, c_errs...)
-	e_if_body, b_errs := p.ParseBlockExpression()
+	body, b_errs := p.parseSimpleExpression()
 	errs = append(errs, b_errs...)
 
-	if p.MatchNext(lexer.Keyword, "else", 0) {
+	_, err = p.Expect(lexer.Punctuator, ")")
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	e := &ast.SeparatedExpression{
+		Body: body,
+	}
+	e.Position = expr_start
+
+	return e, errs
+}
+
+func (p *Parser) parseConditionalExpression() (*ast.ConditionalExpression, []error) {
+	var errs []error
+	var expr_start lexer.Position
+	var condition ast.SimpleExpression
+	var if_body *ast.BlockExpression
+	var else_body *ast.BlockExpression
+
+	if_tk, err := p.Expect(lexer.Keyword, "if")
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if if_tk != nil {
+		expr_start = if_tk.Position
+	}
+
+	condition, c_errs := p.parseSimpleExpression()
+	errs = append(errs, c_errs...)
+	if_body, b_errs := p.parseBlockExpression()
+	errs = append(errs, b_errs...)
+
+	if p.matchNext(lexer.Keyword, "else", 0) {
 		// consume 'else'
-		p.Next()
-		e_else_b, e_errs := p.ParseBlockExpression()
-		e_else_body = e_else_b
+		p.next()
+		else_b, e_errs := p.parseBlockExpression()
+		else_body = else_b
 		errs = append(errs, e_errs...)
 	}
 
-	r := ast.ConditionalExpression{
-		Condition: e_condition,
-		IfBody:    *e_if_body,
-		ElseBody:  *e_else_body,
+	e := &ast.ConditionalExpression{
+		Condition: condition,
+		IfBody:    if_body,
+		ElseBody:  else_body,
 	}
-	r.TokenPosition = expr_start
-	return &r, errs
+	e.Position = expr_start
+
+	return e, errs
 }
 
-func (p *Parser) ParsePrimaryExpression() (ast.PrimaryExpression, []ParseError) {
+func (p *Parser) parsePrimaryExpression() (ast.PrimaryExpression, []error) {
 	// according to grammar:
-	// pexpr : literal
-	//       | ident
-	//       | call_expr
-	//       | block_expr
-	//       | sep_expr
-	//       | con_expr
+	// primary ::= literal
+	//           | ident
+	//           | call_expr
+	//           | block_expr
+	//           | sep_expr
+	//           | con_expr
 
 	// parse literal
-	if p.MatchNext(lexer.Literal, "", 0) {
-		return p.ParseLiteral()
+	if p.matchNext(lexer.Literal, "", 0) {
+		return p.parseLiteral()
 	}
 
 	// parse function call
-	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Punctuator, "(", 1) {
-		return p.ParseFunctionCall()
+	if p.matchNext(lexer.Identifier, "", 0) && p.matchNext(lexer.Punctuator, "(", 1) {
+		return p.parseFunctionCall()
 	}
 
 	// parse identifier
-	if p.MatchNext(lexer.Identifier, "", 0) {
-		return p.ParseIdentifier()
+	if p.matchNext(lexer.Identifier, "", 0) {
+		id, err := p.parseIdentifier()
+		return id, []error{err}
 	}
 
 	// parse block expression
-	if p.MatchNext(lexer.Punctuator, "{", 0) {
-		return p.ParseBlockExpression()
+	if p.matchNext(lexer.Punctuator, "{", 0) {
+		return p.parseBlockExpression()
 	}
 
 	// parse separated expression
-	if p.MatchNext(lexer.Punctuator, "(", 0) {
-		return p.ParseSeparatedExpression()
+	if p.matchNext(lexer.Punctuator, "(", 0) {
+		return p.parseSeparatedExpression()
 	}
 
 	// parse conditional expression
-	if p.MatchNext(lexer.Keyword, "if", 0) {
-		return p.ParseConditionalExpression()
+	if p.matchNext(lexer.Keyword, "if", 0) {
+		return p.parseConditionalExpression()
 	}
 
-	return nil, nil
+	var pos lexer.Position
+	if p.peek() != nil {
+		pos = p.peek().Position
+	}
+
+	return nil, []error{parseError("unknown primary expression", pos)}
 }
 
-// returns either a primary or a binary expression as defined in the grammar
-func (p *Parser) ParseBinaryExpression() (ast.Expression, []ParseError) {
-	expr_start := p.Peek().Position
-	var e_left ast.Expression
+func (p *Parser) parseUnaryExpression() (*ast.UnaryExpression, []error) {
+	var errs []error
+	var expr_start lexer.Position
+	var operator ast.UnaryOperator
+	var value ast.PrimaryExpression
 
-	e_left, errs := p.ParsePrimaryExpression()
-
-	isCurrentBinop := func() bool {
-		_, ok := ast.BinaryOperators[p.Peek().Value]
-		return ok && p.MatchNext(lexer.Operator, "", 0)
+	operator_tk, err := p.Expect(lexer.Operator, "")
+	if err != nil {
+		errs = append(errs, err)
 	}
-
-	for isCurrentBinop() {
-		op := ast.BinaryOperators[p.Next().Value]
-		e_right, r_errs := p.ParseExpression()
-		errs = append(errs, r_errs...)
-		e_left = &ast.BinaryExpression{
-			Left:     e_left,
-			Operator: op,
-			Right:    e_right,
+	if operator_tk != nil {
+		expr_start = operator_tk.Position
+		op, ok := ast.UnaryOperators[operator_tk.Value]
+		if !ok {
+			errs = append(errs, parseError(fmt.Sprintf("unknown unary operator: %s", operator_tk.Value), operator_tk.Position))
+		} else {
+			operator = op
 		}
 	}
 
-	if e, ok := e_left.(*ast.BinaryExpression); ok {
-		e.TokenPosition = expr_start
-	}
-
-	return e_left, errs
-}
-
-func (p *Parser) ParseForExpression() (*ast.ForExpression, []ParseError) {
-	expr_start := p.Peek().Position
-	p.Expect(lexer.Keyword, "for")
-
-	condition, errs := p.ParseExpression()
-	body, b_errs := p.ParseBlockExpression()
-	errs = append(errs, b_errs...)
-
-	r := ast.ForExpression{
-		Condition: condition,
-		Body:      body,
-	}
-	r.TokenPosition = expr_start
-	return &r, errs
-}
-
-func (p *Parser) ParseBreakExpression() (*ast.BreakExpression, []ParseError) {
-	expr_start := p.Peek().Position
-	p.Expect(lexer.Keyword, "break")
-	r := ast.BreakExpression{}
-	r.TokenPosition = expr_start
-	return &r, nil
-}
-
-func (p *Parser) ParseUnaryExpression() (*ast.UnaryExpression, []ParseError) {
-	expr_start := p.Peek().Position
-	op_tk := p.Expect(lexer.Operator, "")
-	op, ok := ast.UnaryOperators[op_tk.Value]
-	val, errs := p.ParseExpression()
-	if !ok {
-		errs = append(errs, parseError(fmt.Sprintf("unknown unary operator %s", op_tk.Value), op_tk.Position))
-	}
+	value, v_errs := p.parsePrimaryExpression()
+	errs = append(errs, v_errs...)
 
 	r := ast.UnaryExpression{
-		Operator: op,
-		Value:    val,
+		Operator: operator,
+		Value:    value,
 	}
-	r.TokenPosition = expr_start
+	r.Position = expr_start
 	return &r, errs
 }
 
-func (p *Parser) ParseExpression() (ast.Expression, []ParseError) {
+func (p *Parser) parseExpression() (ast.Expression, []error) {
 	// according to grammar:
 	// expr : bind_expr
 	//      | return_expr
 	//      | assg_expr
-	//      | bin_expr
+	//      | simple_expr
 
 	// parse bind expression
-	if p.MatchNext(lexer.Keyword, "let", 0) {
-		return p.ParseBindExpression()
+	if p.matchNext(lexer.Keyword, "let", 0) {
+		return p.parseBindExpression()
 	}
 
 	// parse return expression
-	if p.MatchNext(lexer.Keyword, "return", 0) {
-		return p.ParseReturnExpression()
-	}
-
-	// parse for expression
-	if p.MatchNext(lexer.Keyword, "for", 0) {
-		return p.ParseForExpression()
-	}
-
-	if p.MatchNext(lexer.Keyword, "break", 0) {
-		return p.ParseBreakExpression()
+	if p.matchNext(lexer.Keyword, "return", 0) {
+		return p.parseReturnExpression()
 	}
 
 	// parse assignment expression
-	if p.MatchNext(lexer.Identifier, "", 0) && p.MatchNext(lexer.Operator, "=", 1) {
-		return p.ParseAssignmentExpression()
+	if p.matchNext(lexer.Identifier, "", 0) && p.matchNext(lexer.Operator, "=", 1) {
+		return p.parseAssignmentExpression()
 	}
 
-	// parse unary expression
-	if p.MatchNext(lexer.Operator, "", 0) {
-		if _, ok := ast.UnaryOperators[p.Peek().Value]; ok {
-			return p.ParseUnaryExpression()
-		}
-	}
-
-	// parse binary or primary expression
-	return p.ParseBinaryExpression()
+	// parse simple expression
+	return p.parseSimpleExpression()
 }
 
-func (p *Parser) ParseBlockExpression() (*ast.BlockExpression, []ParseError) {
-	errs := []ParseError{}
-	expr_start := p.Peek().Position
+// parseBlockExpression parses a block expression, returning it and all the
+// errors it encountered along the way.
+func (p *Parser) parseBlockExpression() (*ast.BlockExpression, []error) {
+	errs := []error{}
+	var expr_start lexer.Position
+	if tk := p.peek(); tk != nil {
+		expr_start = tk.Position
+	}
 	var e_body []ast.Expression
 	var e_return_expression ast.Expression
 
-	p.Expect(lexer.Punctuator, "{")
+	// expect opening curly brace, if not found can't parse expression at all
+	_, err := p.Expect(lexer.Punctuator, "{")
+	if err != nil {
+		errs = append(errs, err)
+		return nil, errs
+	}
 
 	has_return_expression := false
-	for !p.MatchNext(lexer.Punctuator, "}", 0) {
-		expr_start := p.Peek().Position
-		expression, e_errs := p.ParseExpression()
+	for p.peek() != nil && !p.matchNext(lexer.Punctuator, "}", 0) {
+		expression, e_errs := p.parseExpression()
 		errs = append(errs, e_errs...)
 
-		if !p.MatchNext(lexer.Punctuator, ";", 0) {
+		if !p.matchNext(lexer.Punctuator, ";", 0) {
 			if has_return_expression {
-				errs = append(errs, parseError("unexpected expression, block expression already has a return expression", expr_start))
+				errs = append(errs, parseError("unexpected expression, block expression already has a return expression", expression.GetPosition()))
 				continue
 			}
 			e_return_expression = expression
 			has_return_expression = true
 		} else {
 			e_body = append(e_body, expression)
-			p.Next()
+			_, err = p.Expect(lexer.Punctuator, ";")
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
 	// consume curly brace
-	p.Expect(lexer.Punctuator, "}")
+	_, err = p.Expect(lexer.Punctuator, "}")
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	r := ast.BlockExpression{
-		Body:                     e_body,
-		ImplicitReturnExpression: e_return_expression,
+		Body:           e_body,
+		ImplicitReturn: e_return_expression,
 	}
-	r.TokenPosition = expr_start
+	r.Position = expr_start
 
 	return &r, errs
 }
 
-func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []ParseError) {
-	errs := []ParseError{}
-	var f_name ast.Identifier
-	var f_type ast.Type
-	var f_params []ast.Parameter
+// ParseFunctionDeclaration parses a function declaration along with its body
+// starting at the position of the Parser head. Any errors encountered along
+// the way will be returned.
+func (p *Parser) ParseFunctionDeclaration() (ast.FunctionDeclaration, []error) {
+	errs := []error{}
+	var f_ident *ast.IdentifierExpression
+	var f_type_name *ast.IdentifierExpression
+	var f_params []ast.ParameterDefinition
 	var f_body *ast.BlockExpression
 
 	// parse function type
-	type_tk := p.Expect(lexer.Identifier, "")
-	f_type, ok := ast.ParseType(type_tk.Value)
-	if !ok {
-		errs = append(errs, parseError(fmt.Sprintf("unknown function return type %s", type_tk.Value), type_tk.Position))
+	f_type_name, err := p.parseIdentifier()
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	start_loc := type_tk.Position
-
-	name_tk := p.Expect(lexer.Identifier, "")
-	f_name = ast.Identifier{
-		Value: name_tk.Value,
+	// parse function name
+	f_ident, err = p.parseIdentifier()
+	if err != nil {
+		errs = append(errs, err)
 	}
-	f_name.TokenPosition = name_tk.Position
 
-	p.Expect(lexer.Punctuator, "(")
+	// expect opening parenthesis
+	_, err = p.Expect(lexer.Punctuator, "(")
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	param_names := map[string]bool{}
-
 	requires_comma := false
 
-	for !p.MatchCurrent(lexer.Punctuator, ")") {
+	// parse parameters
+	for p.peek() != nil && !p.matchCurrent(lexer.Punctuator, ")") {
 		if requires_comma {
-			if !p.MatchCurrent(lexer.Punctuator, ",") {
-				errs = append(errs, parseError(fmt.Sprintf("expected comma at %s, got %s %s", p.Peek().Position.String(), p.Peek().Kind.String(), p.Peek().Value), p.Peek().Position))
-			} else {
-				// consume the comma
-				p.Next()
+			_, err = p.Expect(lexer.Punctuator, ",")
+			if err != nil {
+				errs = append(errs, err)
 			}
 		} else {
 			requires_comma = true
 		}
-		param_type_tk := p.Expect(lexer.Identifier, "")
-		param_type, ok := ast.ParseType(param_type_tk.Value)
-		if !ok {
-			errs = append(errs, parseError(fmt.Sprintf("unknown parameter type %s", param_type_tk.Value), param_type_tk.Position))
+		// parse parameter type
+		param_type_name, err := p.parseIdentifier()
+		if err != nil {
+			errs = append(errs, err)
 		}
 
-		param_name_tk := p.Expect(lexer.Identifier, "")
-
-		if param_names[param_name_tk.Value] {
-			errs = append(errs, parseError(fmt.Sprintf("parameter %s already declared", param_name_tk.Value), param_name_tk.Position))
+		// parse parameter name
+		param_name, err := p.parseIdentifier()
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if param_names[param_name.Value] {
+			errs = append(errs, parseError(fmt.Sprintf("parameter %s already defined", param_name.Value), param_name.Position))
 		}
 
-		param_names[param_name_tk.Value] = true
+		param_names[param_name.Value] = true
 
-		f_params = append(f_params, ast.Parameter{
-			Type: param_type,
-			Name: ast.Identifier{
-				Value: param_name_tk.Value,
-			},
+		f_params = append(f_params, ast.ParameterDefinition{
+			Name:     param_name,
+			TypeName: param_type_name,
 		})
 	}
 
-	p.Expect(lexer.Punctuator, ")")
+	// expect closing parenthesis
+	_, err = p.Expect(lexer.Punctuator, ")")
+	if err != nil {
+		errs = append(errs, err)
+	}
 
-	f_body, b_errs := p.ParseBlockExpression()
-	errs = append(errs, b_errs...)
+	// parse function body
+	f_body, body_parse_errors := p.parseBlockExpression()
+	errs = append(errs, body_parse_errors...)
 
 	return ast.FunctionDeclaration{
-		Name:       f_name,
-		Type:       f_type,
+		Identifier: f_ident,
+		TypeName:   f_type_name,
 		Parameters: f_params,
-		Body:       *f_body,
-		Position:   start_loc,
+		Body:       f_body,
 	}, errs
 }
 
-func (p *Parser) Parse() (ast.Prog, bool) {
-	res := ast.Prog{}
+func (p *Parser) Parse() (ast.Program, []error) {
+	res := ast.Program{}
+	if len(p.tokens) == 0 {
+		return res, []error{errors.New("empty file")}
+	}
 
+	errors := []error{}
 	for p.head < len(p.tokens) {
 		d, errs := p.ParseFunctionDeclaration()
 		res.Declarations = append(res.Declarations, d)
-		p.errors = append(p.errors, errs...)
+		errors = append(errors, errs...)
 	}
 
-	return res, len(p.errors) == 0
+	return res, errors
 }
