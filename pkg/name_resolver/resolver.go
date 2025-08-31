@@ -47,10 +47,7 @@ func NewNameResolver(program *ast.Program) NameResolver {
 }
 
 func (r *NameResolver) ResolveNames() (*ast.Program, error) {
-	if err := r.VisitProgram(r.program); err != nil {
-		return r.program, err
-	}
-	return r.program, nil
+	return r.program, r.program.Accept(r)
 }
 
 // PushScope creates a new empty scope with the current scope as the parent.
