@@ -5,10 +5,11 @@
 - 'something' means a text literal with the value 'something'
 - '*' means any text literal value
 
-prog         ::= { fun_decl }
+prog         ::= { fun_decl | extrn_decl }
 
 fun_decl     ::= type ident '(' parm_types ')' block_expr
 parm_types   ::= [ type ident { ',' type ident } ]
+extrn_decl   ::= 'extrn' type ident '(' [ type { ',' type } ] ')'
 
 block_expr  ::= '{' { expr ';' } [ expr ] '}'
 
