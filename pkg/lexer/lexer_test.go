@@ -13,7 +13,7 @@ func test() {
 `
 
 func TestLexer(t *testing.T) {
-	l := lexer.NewLexer(test_program)
+	l := lexer.NewLexer("test", test_program)
 
 	_, err := l.Lex()
 	if err != nil {

@@ -34,12 +34,13 @@ const (
 )
 
 type Position struct {
+	File   string
 	Line   int
 	Column int
 }
 
 func (p *Position) String() string {
-	return fmt.Sprintf("line %d column %d ", p.Line+1, p.Column)
+	return fmt.Sprintf("%s:%d:%d:", p.File, p.Line+1, p.Column)
 }
 
 type Token struct {
@@ -53,16 +54,26 @@ func (t Token) String() string {
 }
 
 type Lexer struct {
-	input  string
-	head   int
-	output []Token
+	input_filename string
+	input          string
+	head           int
+	output         []Token
 }
 
-func NewLexer(input string) Lexer {
+func NewLexer(input_filename string, input string) Lexer {
 	return Lexer{
-		input:  input,
-		head:   0,
-		output: []Token{},
+		input_filename: input_filename,
+		input:          input,
+		head:           0,
+		output:         []Token{},
+	}
+}
+
+func (l Lexer) pos(line int, column int) Position {
+	return Position{
+		File:   l.input_filename,
+		Line:   line,
+		Column: column,
 	}
 }
 
@@ -143,12 +154,9 @@ func (l *Lexer) Lex() ([]Token, error) {
 			}
 			value := l.input[start:l.head]
 			l.output = append(l.output, Token{
-				Kind:  Literal,
-				Value: value,
-				Position: Position{
-					Line:   line,
-					Column: start_column,
-				},
+				Kind:     Literal,
+				Value:    value,
+				Position: l.pos(line, start_column),
 			})
 			continue
 		}
@@ -168,12 +176,9 @@ func (l *Lexer) Lex() ([]Token, error) {
 			}
 			value := l.input[start:l.head]
 			l.output = append(l.output, Token{
-				Kind:  Literal,
-				Value: value,
-				Position: Position{
-					Line:   line,
-					Column: start_column,
-				},
+				Kind:     Literal,
+				Value:    value,
+				Position: l.pos(line, start_column),
 			})
 			continue
 		}
@@ -198,12 +203,9 @@ func (l *Lexer) Lex() ([]Token, error) {
 			}
 
 			l.output = append(l.output, Token{
-				Kind:  kind,
-				Value: value,
-				Position: Position{
-					Line:   line,
-					Column: start_column,
-				},
+				Kind:     kind,
+				Value:    value,
+				Position: l.pos(line, start_column),
 			})
 			continue
 		}
@@ -239,12 +241,9 @@ func (l *Lexer) Lex() ([]Token, error) {
 			}
 
 			l.output = append(l.output, Token{
-				Kind:  kind,
-				Value: value,
-				Position: Position{
-					Line:   line,
-					Column: start_column,
-				},
+				Kind:     kind,
+				Value:    value,
+				Position: l.pos(line, start_column),
 			})
 			continue
 		}
