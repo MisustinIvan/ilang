@@ -11,13 +11,19 @@ type TypeResolver struct {
 	program *ast.Program
 }
 
+func NewTypeResolver(prog *ast.Program) TypeResolver {
+	return TypeResolver{
+		program: prog,
+	}
+}
+
 type TypeResolutionError struct {
 	Message  string
 	Position lexer.Position
 }
 
 func (e TypeResolutionError) Error() string {
-	return fmt.Sprintf("TypeResolutionError [%s] at %s", e.Message, e.Position.String())
+	return fmt.Sprintf("%s TypeResolutionError: %s", e.Position.String(), e.Message)
 }
 
 func typeResolutionError(msg string, pos lexer.Position) TypeResolutionError {
@@ -58,6 +64,8 @@ func (t *TypeResolver) VisitFunctionDeclaration(d *ast.FunctionDeclaration) erro
 			errs = append(errs, err)
 		}
 	}
+
+	d.Body.SetType(return_type)
 
 	if err := d.Body.Accept(t); err != nil {
 		errs = append(errs, err)
@@ -129,6 +137,7 @@ func (t *TypeResolver) VisitCall(e *ast.CallExpression) error {
 	if err := e.Identifier.Accept(t); err != nil {
 		errs = append(errs, err)
 	}
+	e.SetType(e.Identifier.Type)
 
 	for _, param := range e.Params {
 		if err := param.Accept(t); err != nil {
@@ -148,13 +157,18 @@ func (t *TypeResolver) VisitBlock(e *ast.BlockExpression) error {
 		}
 	}
 
-	if e.ImplicitReturn == nil {
-		e.SetType(ast.Unit)
-	} else {
-		if err := e.ImplicitReturn.Accept(t); err != nil {
-			errs = append(errs, err)
+	if e.ImplicitReturn != nil {
+		errs = append(errs, e.ImplicitReturn.Accept(t))
+	}
+
+	// If this block expression is a function body, the function will set
+	// the expected type, if it is undefined, we have to set it here.
+	if e.GetType() == ast.Undefined {
+		if e.ImplicitReturn != nil {
+			e.SetType(e.ImplicitReturn.GetType())
+		} else {
+			e.SetType(ast.Unit)
 		}
-		e.SetType(e.ImplicitReturn.GetType())
 	}
 
 	return errors.Join(errs...)
