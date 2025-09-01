@@ -45,7 +45,9 @@ func (c *TypeChecker) CheckTypes() (*ast.Program, error) {
 
 func (c *TypeChecker) VisitProgram(p *ast.Program) error {
 	var errs []error
-
+	for _, decl := range p.ExternalDeclarations {
+		errs = append(errs, decl.Accept(c))
+	}
 	for _, decl := range p.Declarations {
 		errs = append(errs, decl.Accept(c))
 	}
@@ -60,6 +62,11 @@ func (c *TypeChecker) VisitFunctionDeclaration(d *ast.FunctionDeclaration) error
 }
 
 func (c *TypeChecker) VisitParameterDefinition(d *ast.ParameterDefinition) error {
+	return nil
+}
+
+func (c *TypeChecker) VisitExternalFunctionDeclaration(d *ast.ExternalFunctionDeclaration) error {
+	c.functions[d.Identifier] = d.Parameters
 	return nil
 }
 

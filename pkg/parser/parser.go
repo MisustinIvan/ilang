@@ -679,10 +679,84 @@ func (p *Parser) ParseFunctionDeclaration() (*ast.FunctionDeclaration, error) {
 	}, nil
 }
 
+// parseExternalFunctionDeclaration parses an external function declaration starting
+// at the head.
+// According to the grammar:
+//
+// extrn_decl   ::= 'extrn' type ident '(' [ type { ',' type } ] ')'
+func (p *Parser) parseExternalFunctionDeclaration() (*ast.ExternalFunctionDeclaration, error) {
+	var f_type_name *ast.IdentifierExpression
+	var f_ident *ast.IdentifierExpression
+	var f_params []ast.ParameterDefinition
+
+	// expect 'extrn' keyword
+	_, err := p.Expect(lexer.Keyword, "extrn")
+	if err != nil {
+		return nil, err
+	}
+
+	// parse type name
+	f_type_name, err = p.parseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	// parse function name
+	f_ident, err = p.parseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	// expect opening brace
+	_, err = p.Expect(lexer.Punctuator, "(")
+	if err != nil {
+		return nil, err
+	}
+
+	requires_comma := false
+
+	// parse parameters
+	for !p.matchCurrent(lexer.Punctuator, ")") && p.peek() != nil {
+		if requires_comma {
+			_, err = p.Expect(lexer.Punctuator, ",")
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			requires_comma = true
+		}
+		// parse parameter type
+		param_type_name, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+
+		// we only need the type and to make it easier we reuse this structure
+		f_params = append(f_params, ast.ParameterDefinition{
+			Name: &ast.IdentifierExpression{
+				Value: fmt.Sprintf("external_function_param_%d", len(f_params)),
+			},
+			TypeName: param_type_name,
+		})
+	}
+
+	// expect closing brace
+	_, err = p.Expect(lexer.Punctuator, ")")
+	if err != nil {
+		return nil, err
+	}
+
+	return &ast.ExternalFunctionDeclaration{
+		Identifier: f_ident,
+		TypeName:   f_type_name,
+		Parameters: f_params,
+	}, nil
+}
+
 // Parse parses the tokens in the parser and returns an ast.Program.
 // According to the grammar:
 //
-// prog         ::= { fun_decl }
+// prog         ::= { fun_decl | extrn_decl }
 func (p *Parser) Parse() (*ast.Program, error) {
 	if len(p.tokens) == 0 {
 		return nil, errors.New("empty file")
@@ -691,11 +765,19 @@ func (p *Parser) Parse() (*ast.Program, error) {
 	prog := &ast.Program{}
 
 	for p.head < len(p.tokens) {
-		d, err := p.ParseFunctionDeclaration()
-		if err != nil {
-			return nil, err
+		if p.matchCurrent(lexer.Keyword, "extrn") {
+			d, err := p.parseExternalFunctionDeclaration()
+			if err != nil {
+				return nil, err
+			}
+			prog.ExternalDeclarations = append(prog.ExternalDeclarations, d)
+		} else {
+			d, err := p.ParseFunctionDeclaration()
+			if err != nil {
+				return nil, err
+			}
+			prog.Declarations = append(prog.Declarations, d)
 		}
-		prog.Declarations = append(prog.Declarations, *d)
 	}
 
 	return prog, nil

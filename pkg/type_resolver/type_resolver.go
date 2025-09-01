@@ -43,10 +43,11 @@ func (t *TypeResolver) ResolveTypes() (*ast.Program, error) {
 
 func (t *TypeResolver) VisitProgram(p *ast.Program) error {
 	var errs []error
+	for _, decl := range p.ExternalDeclarations {
+		errs = append(errs, decl.Accept(t))
+	}
 	for _, decl := range p.Declarations {
-		if err := decl.Accept(t); err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, decl.Accept(t))
 	}
 	return errors.Join(errs...)
 }
@@ -80,6 +81,25 @@ func (t *TypeResolver) VisitParameterDefinition(d *ast.ParameterDefinition) erro
 	parameter_type, err := ast.ParseType(d.TypeName.Value)
 	d.Name.SetType(parameter_type)
 	return err
+}
+
+func (t *TypeResolver) VisitExternalFunctionDeclaration(d *ast.ExternalFunctionDeclaration) error {
+	var errs []error
+
+	return_type, err := ast.ParseType(d.TypeName.Value)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	d.Identifier.SetType(return_type)
+	d.Type = return_type
+
+	for _, param := range d.Parameters {
+		if err := param.Accept(t); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func (t *TypeResolver) VisitBind(e *ast.BindExpression) error {

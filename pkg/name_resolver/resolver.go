@@ -95,10 +95,11 @@ func (r *NameResolver) Declare(id *ast.IdentifierExpression) error {
 
 func (r *NameResolver) VisitProgram(p *ast.Program) error {
 	var errs []error
+	for _, decl := range p.ExternalDeclarations {
+		errs = append(errs, decl.Accept(r))
+	}
 	for _, decl := range p.Declarations {
-		if err := decl.Accept(r); err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, decl.Accept(r))
 	}
 	return errors.Join(errs...)
 }
@@ -123,6 +124,20 @@ func (r *NameResolver) VisitFunctionDeclaration(d *ast.FunctionDeclaration) erro
 
 func (r *NameResolver) VisitParameterDefinition(d *ast.ParameterDefinition) error {
 	return r.Declare(d.Name)
+
+}
+
+func (r *NameResolver) VisitExternalFunctionDeclaration(d *ast.ExternalFunctionDeclaration) error {
+	var errs []error
+	if err := r.Declare(d.Identifier); err != nil {
+		errs = append(errs, err)
+	}
+	for _, param := range d.Parameters {
+		if err := param.Accept(r); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (r *NameResolver) VisitBind(e *ast.BindExpression) error {

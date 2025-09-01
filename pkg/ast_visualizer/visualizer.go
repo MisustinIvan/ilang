@@ -38,6 +38,10 @@ func ExportASTToGraphviz(prog *ast.Program, w io.Writer) {
 	fmt.Fprintln(w, `  node [shape=box];`)
 	rootID := writeNode(w, "", "Program", "lightblue")
 
+	for _, decl := range prog.ExternalDeclarations {
+		writeExternalFunctionDeclaration(decl, rootID, w)
+	}
+
 	for _, decl := range prog.Declarations {
 		writeFunctionDeclaration(decl, rootID, w)
 	}
@@ -45,7 +49,7 @@ func ExportASTToGraphviz(prog *ast.Program, w io.Writer) {
 	fmt.Fprintln(w, "}")
 }
 
-func writeFunctionDeclaration(fd ast.FunctionDeclaration, parent string, w io.Writer) {
+func writeFunctionDeclaration(fd *ast.FunctionDeclaration, parent string, w io.Writer) {
 	id := writeNode(w, parent, "Function Declaration", "red")
 	writeNode(w, id, "Name: %s", "", fd.Identifier.Value)
 	writeNode(w, id, "Return Type Name: %s", "", fd.TypeName.Value)
@@ -58,6 +62,19 @@ func writeFunctionDeclaration(fd ast.FunctionDeclaration, parent string, w io.Wr
 
 	bodyID := writeNode(w, id, "Body", "")
 	writeBlockExpression(fd.Body, bodyID, w)
+}
+
+func writeExternalFunctionDeclaration(fd *ast.ExternalFunctionDeclaration, parent string, w io.Writer) {
+	id := writeNode(w, parent, "External Function Declaration", "red")
+	writeNode(w, id, "Name: %s", "", fd.Identifier.Value)
+	writeNode(w, id, "Return Type Name: %s", "", fd.TypeName.Value)
+	writeNode(w, id, "Return Type: %s", "", fd.Type.String())
+	writeNode(w, id, "Return Type: %s", "", fd.Identifier.GetType().String())
+
+	paramsID := writeNode(w, id, "Parameters", "lightgreen")
+	for _, p := range fd.Parameters {
+		writeNode(w, paramsID, "Parameter: %s(%s) %s", "", p.TypeName.Value, p.Name.Type.String(), p.Name.Value)
+	}
 }
 
 func writeBlockExpression(expr *ast.BlockExpression, parent string, w io.Writer) {

@@ -7,6 +7,7 @@ import "lang/pkg/lexer"
 type AstVisitor interface {
 	VisitProgram(p *Program) error
 	VisitFunctionDeclaration(d *FunctionDeclaration) error
+	VisitExternalFunctionDeclaration(e *ExternalFunctionDeclaration) error
 	VisitParameterDefinition(d *ParameterDefinition) error
 	VisitBind(e *BindExpression) error
 	VisitReturn(e *ReturnExpression) error
@@ -26,7 +27,8 @@ type Node interface {
 }
 
 type Program struct {
-	Declarations []FunctionDeclaration
+	Declarations         []*FunctionDeclaration
+	ExternalDeclarations []*ExternalFunctionDeclaration
 }
 
 func (p *Program) Accept(v AstVisitor) error {
@@ -52,6 +54,17 @@ type ParameterDefinition struct {
 
 func (d *ParameterDefinition) Accept(v AstVisitor) error {
 	return v.VisitParameterDefinition(d)
+}
+
+type ExternalFunctionDeclaration struct {
+	Type       Type
+	Identifier *IdentifierExpression
+	TypeName   *IdentifierExpression
+	Parameters []ParameterDefinition
+}
+
+func (d *ExternalFunctionDeclaration) Accept(v AstVisitor) error {
+	return v.VisitExternalFunctionDeclaration(d)
 }
 
 type Expression interface {
