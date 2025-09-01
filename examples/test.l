@@ -23,5 +23,5 @@ int test(int a) {
 }
 
 int test2() {
-	if true 69 else 420
+    if true 69 else "ligma"
 }
