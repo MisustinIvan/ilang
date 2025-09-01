@@ -14,7 +14,7 @@ unit test(bool a, int b) {
 }
 `
 
-	l := lexer.NewLexer(test_program)
+	l := lexer.NewLexer("test", test_program)
 
 	tokens, err := l.Lex()
 	if err != nil {
@@ -53,7 +53,7 @@ void test(int b) {
 }
 `
 
-	l := lexer.NewLexer(test_program)
+	l := lexer.NewLexer("test", test_program)
 
 	tokens, err := l.Lex()
 	if err != nil {
@@ -90,7 +90,7 @@ test(int b) {
     printf("%d", a);
 }
 `
-	lexer := lexer.NewLexer(test_program)
+	lexer := lexer.NewLexer("test", test_program)
 	tokens, err := lexer.Lex()
 	if err != nil {
 		t.Fatal(err)
