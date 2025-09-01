@@ -18,7 +18,7 @@ type NameResolutionError struct {
 }
 
 func (e NameResolutionError) Error() string {
-	return fmt.Sprintf("NameResolutionError: [%s] at %s", e.Message, e.Position.String())
+	return fmt.Sprintf("%s NameResolutionError: %s", e.Position.String(), e.Message)
 }
 
 func nameResolutionError(m string, p lexer.Position) NameResolutionError {
