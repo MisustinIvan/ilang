@@ -7,6 +7,8 @@ import (
 	"lang/pkg/lexer"
 	"lang/pkg/name_resolver"
 	"lang/pkg/parser"
+	"lang/pkg/type_checker"
+	"lang/pkg/type_resolver"
 	"log"
 	"os"
 	"os/exec"
@@ -42,7 +44,7 @@ func main() {
 		log.Fatalf("Error: %s", err)
 	}
 
-	l := lexer.NewLexer(string(source_code))
+	l := lexer.NewLexer(source_file_name, string(source_code))
 	tokens, err := l.Lex()
 	if err != nil {
 		log.Fatalf("Error: %s", err)
@@ -56,7 +58,21 @@ func main() {
 
 	name_resolver := name_resolver.NewNameResolver(prog)
 	prog, err = name_resolver.ResolveNames()
-	log.Printf("Errors:\n%s\n", err.Error())
+	if err != nil {
+		fmt.Printf("Name Resolution Errors:\n%s\n", err.Error())
+	}
+
+	type_resolver := type_resolver.NewTypeResolver(prog)
+	prog, err = type_resolver.ResolveTypes()
+	if err != nil {
+		fmt.Printf("Type Resolution Errors:\n%s\n", err.Error())
+	}
+
+	type_checker := type_checker.NewTypeChecker(prog)
+	prog, err = type_checker.CheckTypes()
+	if err != nil {
+		fmt.Printf("Type Check Errors:\n%s\n", err.Error())
+	}
 
 	ast_visualizer.ExportASTToGraphviz(prog, output_file)
 
