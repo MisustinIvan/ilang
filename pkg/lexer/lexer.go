@@ -39,7 +39,7 @@ type Position struct {
 }
 
 func (p *Position) String() string {
-	return fmt.Sprintf("line %d column %d ", p.Line+1, p.Column+1)
+	return fmt.Sprintf("line %d column %d ", p.Line+1, p.Column)
 }
 
 type Token struct {
