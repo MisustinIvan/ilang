@@ -1,3 +1,5 @@
+extrn int add(int a, int b)
+
 int main() {
     c = 25;
     c = 25;
