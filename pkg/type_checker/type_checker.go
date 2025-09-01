@@ -1,167 +1,178 @@
 package type_checker
 
 import (
+	"errors"
 	"fmt"
 	"lang/pkg/ast"
 	"lang/pkg/lexer"
 )
 
-type TypeError struct {
-	Position lexer.TokenPosition
-	Message  string
-}
-
-func (e TypeError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Position.String(), e.Message)
-}
-
-func typeError(msg string, pos lexer.TokenPosition) TypeError {
-	return TypeError{
-		Position: pos,
-		Message:  msg,
-	}
-}
-
 type TypeChecker struct {
-	program ast.Prog
-	errors  []TypeError
-	decls   map[string]ast.FunctionDeclaration
+	program              *ast.Program
+	function_return_type ast.Type
+	functions            map[*ast.IdentifierExpression][]ast.ParameterDefinition
 }
 
-func NewTypeChecker(in ast.Prog) TypeChecker {
-	decls := map[string]ast.FunctionDeclaration{}
-	for _, d := range in.Declarations {
-		decls[d.Name.Value] = d
-	}
-	return TypeChecker{
-		program: in,
-		errors:  []TypeError{},
-		decls:   decls,
+type TypeCheckError struct {
+	Message  string
+	Position lexer.Position
+}
+
+func (e TypeCheckError) Error() string {
+	return fmt.Sprintf("%s TypeCheckError: %s", e.Position.String(), e.Message)
+}
+
+func typeCheckError(msg string, pos lexer.Position) TypeCheckError {
+	return TypeCheckError{
+		Message:  msg,
+		Position: pos,
 	}
 }
 
-func (c *TypeChecker) CheckTypes() bool {
-	for _, decl := range c.program.Declarations {
-		errs := c.CheckExpressionType(&decl.Body)
-		c.errors = append(c.errors, errs...)
+func NewTypeChecker(program *ast.Program) *TypeChecker {
+	return &TypeChecker{
+		program:              program,
+		function_return_type: ast.Undefined,
+		functions:            make(map[*ast.IdentifierExpression][]ast.ParameterDefinition),
+	}
+}
 
-		if decl.Body.Type != decl.Type {
-			c.errors = append(c.errors, TypeError{
-				Message:  fmt.Sprintf("type of body (%s) does not match declared return type (%s) in function %s", decl.Body.Type.String(), decl.Type.String(), decl.Name.Value),
-				Position: decl.Position,
-			})
+func (c *TypeChecker) CheckTypes() (*ast.Program, error) {
+	return c.program, c.program.Accept(c)
+}
+
+func (c *TypeChecker) VisitProgram(p *ast.Program) error {
+	var errs []error
+
+	for _, decl := range p.Declarations {
+		errs = append(errs, decl.Accept(c))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitFunctionDeclaration(d *ast.FunctionDeclaration) error {
+	c.function_return_type = d.Type
+	c.functions[d.Identifier] = d.Parameters
+	return d.Body.Accept(c)
+}
+
+func (c *TypeChecker) VisitParameterDefinition(d *ast.ParameterDefinition) error {
+	return nil
+}
+
+func (c *TypeChecker) VisitBind(e *ast.BindExpression) error {
+	var errs []error
+	errs = append(errs, e.Value.Accept(c))
+	if e.Type != e.Value.GetType() {
+		errs = append(errs, typeCheckError(fmt.Sprintf("type mismatch in bind expression: %s vs %s", e.Type.String(), e.Value.GetType().String()), e.Position))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitReturn(e *ast.ReturnExpression) error {
+	var errs []error
+	errs = append(errs, e.Value.Accept(c))
+	if e.Value.GetType() != c.function_return_type {
+		errs = append(errs, typeCheckError(fmt.Sprintf("type mismatch in return expression: %s vs %s", e.Value.GetType().String(), c.function_return_type.String()), e.Position))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitBinary(e *ast.BinaryExpression) error {
+	var errs []error
+	if e.Left.GetType() != e.Right.GetType() {
+		errs = append(errs, typeCheckError(fmt.Sprintf("type mismatch in binary expression: %s vs %s", e.Left.GetType().String(), e.Right.GetType().String()), e.Position))
+	}
+	if !ast.BinaryOperatorApplies[e.Operator][e.Left.GetType()] {
+		errs = append(errs, typeCheckError(fmt.Sprintf("operator %s does not apply to type %s", e.Operator.String(), e.Left.GetType().String()), e.Left.GetPosition()))
+	}
+	if !ast.BinaryOperatorApplies[e.Operator][e.Right.GetType()] {
+		errs = append(errs, typeCheckError(fmt.Sprintf("operator %s does not apply to type %s", e.Operator.String(), e.Right.GetType().String()), e.Right.GetPosition()))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitLiteral(e *ast.LiteralExpression) error {
+	return nil
+}
+
+func (c *TypeChecker) VisitIdentifier(e *ast.IdentifierExpression) error {
+	return nil
+}
+
+func (c *TypeChecker) VisitCall(e *ast.CallExpression) error {
+	var errs []error
+	if e.Identifier.Resolved == nil {
+		return typeCheckError(fmt.Sprintf("undeclared function %s has unknown type", e.Identifier.Value), e.Position)
+	}
+	if params, ok := c.functions[e.Identifier.Resolved]; !ok {
+		return typeCheckError(fmt.Sprintf("resolved function %s with unknown parameter types, should never happen", e.Identifier.Value), e.Position)
+	} else {
+		if len(e.Params) != len(params) {
+			errs = append(errs, typeCheckError(fmt.Sprintf("function call with wrong amount of parameters, got %d, expecting %d", len(e.Params), len(params)), e.Position))
 		}
-	}
-	return len(c.errors) == 0
-}
+		max_len := min(len(e.Params), len(params))
 
-func (c *TypeChecker) Report() {
-	for _, err := range c.errors {
-		fmt.Printf("Error: %s\n", err.Error())
-	}
-}
-
-func (c *TypeChecker) CheckExpressionType(e ast.Expression) []TypeError {
-	switch e := e.(type) {
-	case *ast.BlockExpression:
-		ret_errs := []TypeError{}
-		for _, expr := range e.Body {
-			errs := c.CheckExpressionType(expr)
-			if len(errs) != 0 {
-				ret_errs = append(ret_errs, errs...)
+		for i := range max_len {
+			if e.Params[i].GetType() != params[i].Name.GetType() {
+				errs = append(errs, typeCheckError(fmt.Sprintf("wrong type of parameter %d, got %s, expecting %s", i, e.Params[i].GetType().String(), params[i].Name.GetType().String()), e.Position))
 			}
 		}
-
-		if e.ImplicitReturnExpression != nil {
-			errs := c.CheckExpressionType(e.ImplicitReturnExpression)
-			ret_errs = append(ret_errs, errs...)
-		}
-		return ret_errs
-	case *ast.Literal:
-		return nil
-	case *ast.Identifier:
-		return nil
-	case *ast.ReturnExpression:
-		return c.CheckExpressionType(e.Value)
-	case *ast.UnaryExpression:
-		errs := c.CheckExpressionType(e.Value)
-		t := e.Expression_i.Type
-		op := e.Operator
-		if !ast.UnaryOperatorApplies[op][t] {
-			errs = append(errs, typeError(fmt.Sprintf("operator %s not compatible with type %s", op.String(), t.String()), e.TokenPosition))
-		}
-		return errs
-	case *ast.BindExpression:
-		lt := e.Left.Type
-		errs := c.CheckExpressionType(e.Right)
-		if lt != e.Right.GetType() {
-			errs = append(errs, typeError(fmt.Sprintf("can't bind value of type %s to identifier of type %s", e.Right.GetType().String(), lt.String()), e.TokenPosition))
-		}
-		return errs
-	case *ast.AssignmentExpression:
-		lt := e.Left.GetType()
-		errs := c.CheckExpressionType(e.Right)
-		if lt != e.Right.GetType() {
-			errs = append(errs, typeError(fmt.Sprintf("invalid type on right side of assignment, expected %s, got %s", lt.String(), e.Right.GetType().String()), e.TokenPosition))
-		}
-		return errs
-	case *ast.BinaryExpression:
-		lt := e.Left.GetType()
-		rt := e.Right.GetType()
-		op := e.Operator
-		errs := c.CheckExpressionType(e.Left)
-		errs = append(errs, c.CheckExpressionType(e.Right)...)
-		if lt != rt {
-			errs = append(errs, typeError(fmt.Sprintf("incompatible types %s and %s in binary expression", lt.String(), rt.String()), e.TokenPosition))
-		}
-		if !ast.BinaryOperatorApplies[op][lt] {
-			errs = append(errs, typeError(fmt.Sprintf("operator %s not compatible with type %s", op.String(), lt.String()), e.TokenPosition))
-		}
-		if !ast.BinaryOperatorApplies[op][rt] {
-			errs = append(errs, typeError(fmt.Sprintf("operator %s not compatible with type %s", op.String(), rt.String()), e.TokenPosition))
-		}
-		return errs
-	case *ast.SeparatedExpression:
-		return c.CheckExpressionType(e.Value)
-	case *ast.ConditionalExpression:
-		errs := c.CheckExpressionType(e.Condition)
-		errs = append(errs, c.CheckExpressionType(&e.IfBody)...)
-		errs = append(errs, c.CheckExpressionType(&e.ElseBody)...)
-		it := e.IfBody.GetType()
-		et := e.ElseBody.GetType()
-		if it != et {
-			errs = append(errs, typeError(fmt.Sprintf("conditional branches dont return the same type: %s vs %s", it.String(), et.String()), e.TokenPosition))
-		}
-		return errs
-	case *ast.ForExpression:
-		errs := c.CheckExpressionType(e.Condition)
-		errs = append(errs, c.CheckExpressionType(e.Body)...)
-		return errs
-	case *ast.BreakExpression:
-		return nil
-	case *ast.FunctionCall:
-		d, ok := c.decls[e.Function.Value]
-		if !ok {
-			return []TypeError{typeError(fmt.Sprintf("call to undeclared function %s", e.Function.Value), e.TokenPosition)}
-		}
-		errs := []TypeError{}
-		if len(d.Parameters) != len(e.Params) {
-			errs = append(errs, typeError(fmt.Sprintf("not matching amount of parameters in function %s call", e.Function.Value), e.TokenPosition))
-		}
-
-		for i, arg := range e.Params {
-			errs = append(errs, c.CheckExpressionType(arg)...)
-			if i >= len(d.Parameters) {
-				errs = append(errs, typeError(fmt.Sprintf("unexpected parameter"), e.TokenPosition))
-			} else {
-				at := arg.GetType()
-				if at != d.Parameters[i].Type {
-					errs = append(errs, typeError(fmt.Sprintf("invalid type of argument, expected %s got %s", d.Parameters[i].Type.String(), at.String()), e.TokenPosition))
-				}
-			}
-		}
-		return errs
-	default:
-		return nil
 	}
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitBlock(e *ast.BlockExpression) error {
+	var errs []error
+	for _, expr := range e.Body {
+		errs = append(errs, expr.Accept(c))
+	}
+	if e.ImplicitReturn != nil {
+		errs = append(errs, e.ImplicitReturn.Accept(c))
+		// check correct return type
+		if e.GetType() != e.ImplicitReturn.GetType() {
+			errs = append(errs, typeCheckError(fmt.Sprintf("implicit return type mismatch, got %s, expected %s", e.ImplicitReturn.GetType().String(), e.GetType().String()), e.ImplicitReturn.GetPosition()))
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitSeparated(e *ast.SeparatedExpression) error {
+	return e.Body.Accept(c)
+}
+
+func (c *TypeChecker) VisitUnary(e *ast.UnaryExpression) error {
+	var errs []error
+	errs = append(errs, e.Value.Accept(c))
+	if !ast.UnaryOperatorApplies[e.Operator][e.Value.GetType()] {
+		errs = append(errs, typeCheckError(fmt.Sprintf("operator %s does not apply to type %s", e.Operator.String(), e.Value.GetType()), e.Position))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitConditional(e *ast.ConditionalExpression) error {
+	var errs []error
+	errs = append(errs, e.Condition.Accept(c))
+	if e.Condition.GetType() != ast.Boolean {
+		errs = append(errs, typeCheckError(fmt.Sprintf("expected boolean condition value, got %s", e.Condition.GetType().String()), e.Position))
+	}
+	errs = append(errs, e.IfBody.Accept(c))
+	if e.ElseBody != nil {
+		errs = append(errs, e.ElseBody.Accept(c))
+		if e.ElseBody.GetType() != e.IfBody.GetType() {
+			errs = append(errs, typeCheckError(fmt.Sprintf("conditional branches have different types: %s vs %s", e.IfBody.GetType().String(), e.ElseBody.GetType().String()), e.Position))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (c *TypeChecker) VisitAssignment(e *ast.AssignmentExpression) error {
+	var errs []error
+	errs = append(errs, e.Value.Accept(c))
+	if e.Value.GetType() != e.Identifier.GetType() {
+		errs = append(errs, typeCheckError(fmt.Sprintf("type mismatch in assignment, expected %s, got %s", e.Identifier.GetType().String(), e.Value.GetType().String()), e.Position))
+	}
+	return errors.Join(errs...)
 }
