@@ -1,3 +1,4 @@
+// Contains functions that allow converting an ast.Program to a graphviz graph
 package ast_visualizer
 
 import (
@@ -7,8 +8,6 @@ import (
 	"strings"
 )
 
-// Contains functions that allow converting an ast.Program to a graphviz graph
-
 var nodeCounter int
 
 func nextNodeID() string {
@@ -16,11 +15,28 @@ func nextNodeID() string {
 	return fmt.Sprintf("node%d", nodeCounter)
 }
 
+func escape(val string) string {
+	return strings.ReplaceAll(val, "\"", "\\\"")
+}
+
+func writeNode(w io.Writer, parent, label, color string, args ...any) string {
+	id := nextNodeID()
+	label = fmt.Sprintf(label, args...)
+	if color != "" {
+		fmt.Fprintf(w, `  %s [label="%s",color="%s"]`+"\n", id, escape(label), color)
+	} else {
+		fmt.Fprintf(w, `  %s [label="%s"]`+"\n", id, escape(label))
+	}
+	if parent != "" {
+		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+	}
+	return id
+}
+
 func ExportASTToGraphviz(prog *ast.Program, w io.Writer) {
 	fmt.Fprintln(w, "digraph AST {")
 	fmt.Fprintln(w, `  node [shape=box];`)
-	rootID := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Program",color="lightblue"]`+"\n", rootID)
+	rootID := writeNode(w, "", "Program", "lightblue")
 
 	for _, decl := range prog.Declarations {
 		writeFunctionDeclaration(decl, rootID, w)
@@ -30,60 +46,34 @@ func ExportASTToGraphviz(prog *ast.Program, w io.Writer) {
 }
 
 func writeFunctionDeclaration(fd ast.FunctionDeclaration, parent string, w io.Writer) {
-	id := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Function Declaration",color="red"]`+"\n", id)
-	fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+	id := writeNode(w, parent, "Function Declaration", "red")
+	writeNode(w, id, "Name: %s", "", fd.Identifier.Value)
+	writeNode(w, id, "Return Type Name: %s", "", fd.TypeName.Value)
+	writeNode(w, id, "Return Type: %s", "", fd.Type.String())
 
-	nameID := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Name: %s"]`+"\n", nameID, fd.Identifier.Value)
-	fmt.Fprintf(w, `  %s -> %s`+"\n", id, nameID)
-
-	returnTypeNameID := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Return Type Name: %s"]`+"\n", returnTypeNameID, fd.TypeName.Value)
-	fmt.Fprintf(w, `  %s -> %s`+"\n", id, returnTypeNameID)
-
-	returnTypeID := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Return Type: %s"]`+"\n", returnTypeID, fd.Type.String())
-	fmt.Fprintf(w, `  %s -> %s`+"\n", id, returnTypeID)
-
-	paramsID := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Parameters",color="lightgreen"]`+"\n", paramsID)
-	fmt.Fprintf(w, `  %s -> %s`+"\n", id, paramsID)
+	paramsID := writeNode(w, id, "Parameters", "lightgreen")
 	for _, p := range fd.Parameters {
-		paramID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Parameter: %s(%s) %s"]`+"\n", paramID, p.TypeName.Value, p.Name.Type.String(), p.Name.Value)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", paramsID, paramID)
+		writeNode(w, paramsID, "Parameter: %s(%s) %s", "", p.TypeName.Value, p.Name.Type.String(), p.Name.Value)
 	}
 
-	bodyID := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Body"]`+"\n", bodyID)
-	fmt.Fprintf(w, `  %s -> %s`+"\n", id, bodyID)
-
+	bodyID := writeNode(w, id, "Body", "")
 	writeBlockExpression(fd.Body, bodyID, w)
-
 }
 
 func writeBlockExpression(expr *ast.BlockExpression, parent string, w io.Writer) {
-	id := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="BlockExpression",color="purple"]`+"\n", id)
-	fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-
-	type_id := nextNodeID()
-	fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", type_id, expr.Type.String())
-	fmt.Fprintf(w, `  %s -> %s`+"\n", id, type_id)
-
 	if expr == nil {
 		return
 	}
 
-	for _, expr := range expr.Body {
-		writeExpression(expr, id, w)
+	id := writeNode(w, parent, "BlockExpression", "purple")
+	writeNode(w, id, "Type: %s", "", expr.Type.String())
+
+	for _, e := range expr.Body {
+		writeExpression(e, id, w)
 	}
 
 	if expr.ImplicitReturn != nil {
-		retID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Implicit Return Expression",color="lightgreen"]`+"\n", retID)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, retID)
+		retID := writeNode(w, id, "Implicit Return Expression", "lightgreen")
 		writeExpression(expr.ImplicitReturn, retID, w)
 	}
 }
@@ -91,144 +81,77 @@ func writeBlockExpression(expr *ast.BlockExpression, parent string, w io.Writer)
 func writeExpression(expr ast.Expression, parent string, w io.Writer) {
 	switch e := expr.(type) {
 	case *ast.BindExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="BindExpression",color="orange"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		id := writeNode(w, parent, "BindExpression", "orange")
+		writeNode(w, id, "Identifier: %s", "", e.Identifier.Value)
+		writeNode(w, id, "TypeName: %s", "", e.TypeName.Value)
+		writeNode(w, id, "Type: %s", "", e.Type.String())
+		valID := writeNode(w, id, "Value", "")
+		writeExpression(e.Value, valID, w)
 
-		leftID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Identifier: %s"]`+"\n", leftID, e.Identifier.Value)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, leftID)
-
-		typeNameID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="TypeName: %s"]`+"\n", typeNameID, e.TypeName.Value)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeNameID)
-
-		typeID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", typeID, e.Type.String())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeID)
-
-		rightID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Value"]`+"\n", rightID)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, rightID)
-		writeExpression(e.Value, rightID, w)
 	case *ast.ReturnExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="ReturnExpression",color="red"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		type_id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", id, expr.GetType())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, type_id)
+		id := writeNode(w, parent, "ReturnExpression", "red")
+		writeNode(w, id, "Type: %s", "", e.GetType().String())
 		writeExpression(e.Value, id, w)
+
 	case *ast.AssignmentExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="AssignmentExpression",color="green"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		leftID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Identifier: %s"]`+"\n", leftID, e.Identifier.Value)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, leftID)
-		leftTypeID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", leftID, e.Identifier.Type)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", leftID, leftTypeID)
-		rightID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Value"]`+"\n", rightID)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, rightID)
-		rightTypeID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", rightTypeID, e.Value.GetType())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", rightID, rightTypeID)
+		id := writeNode(w, parent, "AssignmentExpression", "green")
+		writeNode(w, id, "Identifier: %s", "", e.Identifier.Value)
+		writeNode(w, id, "Type: %s", "", e.Identifier.Type.String())
+		rightID := writeNode(w, id, "Value", "")
+		writeNode(w, rightID, "Type: %s", "", e.Value.GetType().String())
 		writeExpression(e.Value, rightID, w)
+
 	case *ast.BinaryExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="BinaryExpression",color="lightblue"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		typeId := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", e.Type.String(), typeId)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeId)
+		id := writeNode(w, parent, "BinaryExpression", "lightblue")
+		writeNode(w, id, "Type: %s", "", e.Type.String())
 		writeExpression(e.Left, id, w)
-		opID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Operator: %v"]`+"\n", opID, e.Operator)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, opID)
+		writeNode(w, id, "Operator: %v", "", e.Operator)
 		writeExpression(e.Right, id, w)
+
 	case *ast.LiteralExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="LiteralExpression",color="green"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		valID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Value: %s"]`+"\n", valID, escape(e.Value))
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, valID)
-		typeID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", typeID, e.Type.String())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeID)
+		id := writeNode(w, parent, "LiteralExpression", "green")
+		writeNode(w, id, "Value: %s", "", e.Value)
+		writeNode(w, id, "Type: %s", "", e.Type.String())
 
 	case *ast.IdentifierExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="IdentifierExpression: %s",color="lightblue"]`+"\n", id, e.Value)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		type_id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", type_id, e.Type.String())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, type_id)
+		id := writeNode(w, parent, "IdentifierExpression: %s", "lightblue", e.Value)
+		writeNode(w, id, "Type: %s", "", e.Type.String())
+
 	case *ast.CallExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="CallExpression",color="red"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		fnID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Identifier: %s"]`+"\n", fnID, e.Identifier.Value)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, fnID)
-		typeID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", typeID, e.Identifier.Type)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeID)
-		argsID := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Args"]`+"\n", argsID)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, argsID)
+		id := writeNode(w, parent, "CallExpression", "red")
+		writeNode(w, id, "Identifier: %s", "", e.Identifier.Value)
+		writeNode(w, id, "Type: %s", "", e.Identifier.Type.String())
+		argsID := writeNode(w, id, "Args", "")
 		for _, arg := range e.Params {
 			writeExpression(arg, argsID, w)
 		}
+
 	case *ast.SeparatedExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="SeparatedExpression",color="lightgreen"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		id := writeNode(w, parent, "SeparatedExpression", "lightgreen")
 		writeExpression(e.Body, id, w)
+
 	case *ast.ConditionalExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="ConditionalExpression",color="red"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		typeId := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Type: %s"]`+"\n", typeId, e.GetType())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, typeId)
-		condition_id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Condition"]`+"\n", condition_id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, condition_id)
-		writeExpression(e.Condition, condition_id, w)
-		if_body_id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="IfBody"]`+"\n", if_body_id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, if_body_id)
-		writeExpression(e.IfBody, if_body_id, w)
+		id := writeNode(w, parent, "ConditionalExpression", "red")
+		writeNode(w, id, "Type: %s", "", e.GetType().String())
+		condID := writeNode(w, id, "Condition", "")
+		writeExpression(e.Condition, condID, w)
+		ifID := writeNode(w, id, "IfBody", "")
+		writeExpression(e.IfBody, ifID, w)
 		if e.ElseBody != nil {
-			else_body_id := nextNodeID()
-			fmt.Fprintf(w, `  %s [label="ElseBody"]`+"\n", else_body_id)
-			fmt.Fprintf(w, `  %s -> %s`+"\n", id, else_body_id)
-			writeExpression(e.ElseBody, else_body_id, w)
+			elseID := writeNode(w, id, "ElseBody", "")
+			writeExpression(e.ElseBody, elseID, w)
 		}
+
 	case *ast.BlockExpression:
 		writeBlockExpression(e, parent, w)
+
 	case *ast.UnaryExpression:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Unary Expression",color="red"]`+"\n", id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
-		operator_id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Operator: %s"]`+"\n", operator_id, e.Operator.String())
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, operator_id)
-		value_id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Value""]`+"\n", value_id)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", id, value_id)
-		writeExpression(e.Value, value_id, w)
+		id := writeNode(w, parent, "UnaryExpression", "red")
+		writeNode(w, id, "Operator: %s", "", e.Operator.String())
+		valID := writeNode(w, id, "Value", "")
+		writeExpression(e.Value, valID, w)
 
 	default:
-		id := nextNodeID()
-		fmt.Fprintf(w, `  %s [label="Unknown Expression: %v",color="red"]`+"\n", id, e)
-		fmt.Fprintf(w, `  %s -> %s`+"\n", parent, id)
+		writeNode(w, parent, "Unknown Expression: %v", "red", e)
 	}
-}
-
-func escape(val string) string {
-	return strings.ReplaceAll(val, "\"", "\\\"")
 }
