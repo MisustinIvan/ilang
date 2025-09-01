@@ -1,3 +1,5 @@
+// The type_resolver package implements a type repolver traverses the program ast
+// and resolves types of expressions, reporting any errors along the way.
 package type_resolver
 
 import (

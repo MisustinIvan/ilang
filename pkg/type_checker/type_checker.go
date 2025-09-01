@@ -1,3 +1,5 @@
+// The type_checker package implements a type checker that traverses the program
+// ast using the visitor pattern, reporting any type mismatches along the way.
 package type_checker
 
 import (
