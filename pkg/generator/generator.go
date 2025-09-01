@@ -15,12 +15,20 @@ type Generator struct {
 	constantCounter int
 	// conditionals
 	conditionalLabelCounter int
+	// loops
+	loopLabelCounter int
 }
 
 func (g *Generator) NextConditionalLabel() string {
 	v := g.conditionalLabelCounter
 	g.conditionalLabelCounter++
 	return fmt.Sprintf(".conditional_label_%d", v)
+}
+
+func (g *Generator) NextLoopLabel() string {
+	v := g.loopLabelCounter
+	g.loopLabelCounter++
+	return fmt.Sprintf(".loop_label_%d", v)
 }
 
 type ConstantContext struct {
@@ -32,7 +40,7 @@ type ConstantContext struct {
 func (g *Generator) NewUniqueConstantId() string {
 	c := g.constantCounter
 	g.constantCounter++
-	return fmt.Sprintf("constant#%d", c)
+	return fmt.Sprintf("constant_%d", c)
 }
 
 func NewGenerator(prog ast.Prog) Generator {
@@ -56,6 +64,29 @@ type FunctionContext struct {
 	// helpers for scope management
 	localScopes   []LocalVariableScope
 	uniqueCounter int
+	// stack of loop end labels
+	loopStack []string
+}
+
+func (ctx *FunctionContext) PushLoop(end string) {
+	ctx.loopStack = append(ctx.loopStack, end)
+}
+
+func (ctx *FunctionContext) PopLoop() {
+	if len(ctx.loopStack) >= 1 {
+		ctx.loopStack = ctx.loopStack[:len(ctx.loopStack)-1]
+	} else {
+		fmt.Printf("cant pop loop\n")
+	}
+}
+
+func (ctx *FunctionContext) CurrentLoop() string {
+	if len(ctx.loopStack) != 0 {
+		return ctx.loopStack[len(ctx.loopStack)-1]
+	}
+	fmt.Printf("not in a loop\n")
+	os.Exit(-1)
+	return ""
 }
 
 type LocalVariableScope map[string]LocalVariableContext
@@ -212,6 +243,9 @@ func (g *Generator) ResolveIdentifiers(expr ast.Expression, ctx *FunctionContext
 		g.ResolveIdentifiers(e.Right, ctx, false)
 	case *ast.BindExpression:
 		g.ResolveIdentifiers(e.Right, ctx, false)
+	case *ast.ForExpression:
+		g.ResolveIdentifiers(e.Condition, ctx, false)
+		g.ResolveIdentifiers(e.Body, ctx, false)
 	}
 }
 
@@ -255,6 +289,11 @@ func (g *Generator) FindLocals(expr ast.Expression, ctx *FunctionContext) {
 			e.LookupValue = c.LookupValue
 		}
 	case *ast.Identifier:
+	case *ast.ForExpression:
+		g.FindLocals(e.Condition, ctx)
+		g.FindLocals(e.Body, ctx)
+	case *ast.UnaryExpression:
+		g.FindLocals(e.Value, ctx)
 	default:
 		fmt.Printf("Unknown expression type\n")
 		os.Exit(-1)
@@ -393,7 +432,7 @@ func (g *Generator) GenerateBlockExpression(expr *ast.BlockExpression, ctx *Func
 		out += "#   implicit return expression\n"
 		out += g.GenerateExpression(expr.ImplicitReturnExpression, ctx)
 	} else {
-		out += "    mov $0, %rax\n"
+		out += "    mov $0, %rax # return unit\n"
 	}
 
 	return out
@@ -421,37 +460,37 @@ func (g *Generator) GenerateBinaryOperator(op ast.BinaryOperator) string {
 		return out
 	case ast.Equality:
 		out := ""
-		out += "    cmp %rax, %rbx\n"
+		out += "    cmp %rbx, %rax\n"
 		out += "    sete %al\n"
 		out += "    movzbq %al, %rax\n"
 		return out
 	case ast.Inequality:
 		out := ""
-		out += "    cmp %rax, %rbx\n"
+		out += "    cmp %rbx, %rax\n"
 		out += "    setne %al\n"
 		out += "    movzbq %al, %rax\n"
 		return out
 	case ast.LesserThan:
 		out := ""
-		out += "    cmp %rax, %rbx\n"
+		out += "    cmp %rbx, %rax\n"
 		out += "    setl %al\n"
 		out += "    movzbq %al, %rax\n"
 		return out
 	case ast.GreaterThan:
 		out := ""
-		out += "    cmp %rax, %rbx\n"
+		out += "    cmp %rbx, %rax\n"
 		out += "    setg %al\n"
 		out += "    movzbq %al, %rax\n"
 		return out
 	case ast.LesserOrEqualThan:
 		out := ""
-		out += "    cmp %rax, %rbx\n"
+		out += "    cmp %rbx, %rax\n"
 		out += "    setle %al\n"
 		out += "    movzbq %al, %rax\n"
 		return out
 	case ast.GreaterOrEqualThan:
 		out := ""
-		out += "    cmp %rax, %rbx\n"
+		out += "    cmp %rbx, %rax\n"
 		out += "    setge %al\n"
 		out += "    movzbq %al, %rax\n"
 		return out
@@ -524,6 +563,98 @@ func (g *Generator) GenerateConditionalExpression(expr *ast.ConditionalExpressio
 	return out
 }
 
+func (g *Generator) GenerateReturnExpression(expr *ast.ReturnExpression, ctx *FunctionContext) string {
+	out := ""
+	out += "#   return expression\n"
+	out += g.GenerateExpression(expr.Value, ctx)
+	out += "    leave\n"
+	out += "    ret\n"
+	return out
+}
+
+func (g *Generator) GenerateFunctionCall(expr *ast.FunctionCall, ctx *FunctionContext) string {
+	out := ""
+	out += "#   function call expression\n"
+	for n, p := range expr.Params {
+		if n > 5 {
+			fmt.Printf("invalid parameter amount, max amount is 6\n")
+			os.Exit(-1)
+		}
+		out += g.GenerateExpression(p, ctx)
+		out += "    mov %rax, " + Register(n) + "\n"
+	}
+
+	// zero out rax for variadic functions
+	out += "    mov $0, %rax\n"
+
+	if _, ok := g.Declarations[expr.Function.Value]; ok {
+		out += "    call " + expr.Function.Value + "\n"
+	} else {
+		// if the function is not declared, just try to call it from the PLT for now
+		out += "    call " + expr.Function.Value + "@PLT\n"
+	}
+	return out
+}
+
+func (g *Generator) GenerateForExpression(expr *ast.ForExpression, ctx *FunctionContext) string {
+	out := ""
+	out += "#   for expression\n"
+
+	loop_start := g.NextLoopLabel()
+	loop_end := g.NextLoopLabel()
+
+	ctx.PushLoop(loop_end)
+
+	out += loop_start + ":\n"
+	// as we dont care about the result of the condition expression, we push rax and save the previous expression result
+	out += "    push %rax\n"
+	out += g.GenerateExpression(expr.Condition, ctx)
+	out += "    cmp $0, %rax\n"
+	out += "    je " + loop_end + "\n"
+	out += g.GenerateBlockExpression(expr.Body, ctx)
+	out += "    jmp " + loop_start + "\n"
+	out += loop_end + ":\n"
+	// here we restore rax to the previous expression value
+	out += "    pop %rax\n"
+
+	ctx.PopLoop()
+
+	return out
+}
+
+func (g *Generator) GenerateBreakExpression(expr *ast.BreakExpression, ctx *FunctionContext) string {
+	out := ""
+	out += "#   break expression\n"
+	out += "    jmp " + ctx.CurrentLoop() + "\n"
+	return out
+}
+
+func (g *Generator) GenerateUnaryOperator(op ast.UnaryOperator, ctx *FunctionContext) string {
+	switch op {
+	case ast.Negation:
+		out := ""
+		out += "    cmp $0, %rax\n"
+		out += "    sete %al\n"
+		out += "    movzbq %al, %rax\n"
+		return out
+	case ast.Inversion:
+		out := ""
+		out += "    imul $-1, %rax\n"
+	default:
+		fmt.Printf("Unknown unary operator\n")
+		os.Exit(-1)
+	}
+	return ""
+}
+
+func (g *Generator) GenerateUnaryExpression(expr *ast.UnaryExpression, ctx *FunctionContext) string {
+	out := ""
+	out += "#    unary expression\n"
+	out += g.GenerateExpression(expr.Value, ctx)
+	out += g.GenerateUnaryOperator(expr.Operator, ctx)
+	return out
+}
+
 func (g *Generator) GenerateExpression(expr ast.Expression, ctx *FunctionContext) string {
 	switch e := expr.(type) {
 	case *ast.Literal:
@@ -540,6 +671,16 @@ func (g *Generator) GenerateExpression(expr ast.Expression, ctx *FunctionContext
 		return g.GenerateIdentifierExpression(e, ctx)
 	case *ast.ConditionalExpression:
 		return g.GenerateConditionalExpression(e, ctx)
+	case *ast.ReturnExpression:
+		return g.GenerateReturnExpression(e, ctx)
+	case *ast.FunctionCall:
+		return g.GenerateFunctionCall(e, ctx)
+	case *ast.ForExpression:
+		return g.GenerateForExpression(e, ctx)
+	case *ast.BreakExpression:
+		return g.GenerateBreakExpression(e, ctx)
+	case *ast.UnaryExpression:
+		return g.GenerateUnaryExpression(e, ctx)
 	}
 	fmt.Printf("expression not implemented\n")
 	os.Exit(-1)
@@ -582,7 +723,26 @@ func (g *Generator) AssertEntryPoint() {
 func (g *Generator) GenerateHeaders() {
 	out := ""
 	out += "# headers\n"
+	out += ".text\n"
 	out += ".globl main\n"
+	g.Output += out
+}
+
+func (g *Generator) GenerateDataSection() {
+	out := ""
+	out += "\n"
+	out += ".data\n"
+
+	for _, c := range g.Constants {
+		if c.Type == ast.String {
+			out += "." + c.LookupValue + ":\n"
+			out += "    .asciz " + c.Value + "\n"
+		} else {
+			fmt.Printf("unsupported constant type: %s\n", c.Type.String())
+			os.Exit(-1)
+		}
+	}
+
 	g.Output += out
 }
 
@@ -597,7 +757,7 @@ func (g *Generator) Generate() ast.Prog {
 
 	g.GenerateFunctions()
 
-	//g.GenerateDataSection()
+	g.GenerateDataSection()
 
 	fmt.Printf("g.Output:\n%v\n", g.Output)
 
