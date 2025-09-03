@@ -109,6 +109,7 @@ func (t *TypeResolver) VisitBind(e *ast.BindExpression) error {
 		errs = append(errs, err)
 	}
 	e.SetType(variable_type)
+	e.Identifier.SetType(variable_type)
 
 	if err := e.Value.Accept(t); err != nil {
 		errs = append(errs, err)

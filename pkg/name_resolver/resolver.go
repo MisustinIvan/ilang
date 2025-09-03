@@ -203,6 +203,10 @@ func (r *NameResolver) VisitBlock(e *ast.BlockExpression) error {
 		}
 	}
 
+	if e.ImplicitReturn != nil {
+		errs = append(errs, e.ImplicitReturn.Accept(r))
+	}
+
 	return errors.Join(errs...)
 }
 
