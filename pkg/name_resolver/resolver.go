@@ -132,11 +132,6 @@ func (r *NameResolver) VisitExternalFunctionDeclaration(d *ast.ExternalFunctionD
 	if err := r.Declare(d.Identifier); err != nil {
 		errs = append(errs, err)
 	}
-	for _, param := range d.Parameters {
-		if err := param.Accept(r); err != nil {
-			errs = append(errs, err)
-		}
-	}
 	return errors.Join(errs...)
 }
 
