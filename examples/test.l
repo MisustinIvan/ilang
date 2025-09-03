@@ -1,12 +1,10 @@
-extrn int add(int a, int b)
+extrn unit printf(string)
+extrn unit exit(int)
 
 int main() {
-    c = 25;
-    c = 25;
     let a : int = 69;
     let b : int = 420;
     if true {
-        let a : string = "test";
         let a : string = "test";
         a
     };
@@ -14,16 +12,17 @@ int main() {
         let b : bool = false;
         b
     };
-    a
+	printf("balls\n");
+	exit(69);
 }
 
 int test(int a) {
     if true {
         let a : int = 10;
+		a
     };
-    a
 }
 
 int test2() {
-    if true 69 else "ligma"
+    if true 69 else 420
 }
