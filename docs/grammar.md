@@ -38,8 +38,9 @@ pexpr                ::= literal
 call_expr            ::= ident "(" [ simple_expr { "," simple_expr } ] ")"
 sep_expr             ::= "(" simple_expr ")"
 
+type                 ::= "int" | "bool" | "float" | "string" | "unit"
+
 ident                ::= "*."
-type                 ::= "*."
 literal              ::= "*."
 binop                ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
 unop                 ::= "-" | "!"
