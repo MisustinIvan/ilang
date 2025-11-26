@@ -1,4 +1,4 @@
-// implements an abstract syntax tree for the grammar
+// Implements the AST nodes for the grammar.
 package ast
 
 import (
