@@ -22,9 +22,6 @@ return_expr          ::= "return" simple_expr
 assg_expr            ::= ident "=" simple_expr
 bin_expr             ::= pexpr binop simple_expr
 unary_expr           ::= unop primary
-con_expr             ::= "if" simple_expr expr
-                         { "else" "if" simple_expr expr }
-                         [ "else" expr ]
 
 
 pexpr                ::= literal
@@ -34,7 +31,9 @@ pexpr                ::= literal
                        | sep_expr
                        | con_expr
 
-
+con_expr             ::= "if" simple_expr expr
+                         { "else" "if" simple_expr expr }
+                         [ "else" expr ]
 call_expr            ::= ident "(" [ simple_expr { "," simple_expr } ] ")"
 sep_expr             ::= "(" simple_expr ")"
 
