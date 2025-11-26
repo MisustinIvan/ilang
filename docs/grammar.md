@@ -13,17 +13,17 @@ block                ::= "{" { expression ";" } [ expression ] "}"
 expression           ::= return
                        | bind
                        | assignment
-                       | value_expression
+                       | value
 
-value_expression     ::= primary
+value                ::= primary
                        | binary
                        | unary
 
-return               ::= "return" value_expression
-bind                 ::= "let" identifier ":" type "=" value_expression
-assignment           ::= identifier "=" value_expression
+return               ::= "return" value
+bind                 ::= "let" identifier ":" type "=" value
+assignment           ::= identifier "=" value
 
-binary               ::= primary binary_operator value_expression
+binary               ::= primary binary_operator value
 unary                ::= unary_operator primary
 
 primary              ::= literal
@@ -33,10 +33,10 @@ primary              ::= literal
                        | block
                        | condition
 
-call                 ::= identifier "(" [ value_expression { "," value_expression } ] ")"
-separated            ::= "(" value_expression ")"
-condition            ::= "if" value_expression value_expression
-                         [ "else" value_expression ]
+call                 ::= identifier "(" [ value { "," value } ] ")"
+separated            ::= "(" value ")"
+condition            ::= "if" value value
+                         [ "else" value ]
 
 
 literal              ::= "*."
