@@ -1,3 +1,8 @@
+/*
+Implements a lexer for the language according to the grammar.
+
+The lexer consumes a SourceFile and emits a slice of Tokens.
+*/
 package lexer
 
 import (
