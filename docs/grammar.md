@@ -1,46 +1,45 @@
 # Formal grammar definition in EBNF
 
 ```ebnf
-program              ::= { fun_decl | extrn_decl }
+program              ::= { declaration | external_declaration }
 
-fun_decl             ::= type ident "(" param_types ")" block_expr
-param_types          ::= [ type ident { "," type ident } ]
-extrn_decl           ::= "extrn" type ident "(" param_types ")"
+declaration          ::= type ident "(" [ function_parameter { "," function_parameter } ] ")" block
+external_declaration ::= "extrn" type identifier "(" [ function_parameter { "," function_parameter } ] ")"
+function_parameter   ::= type identifier
 
-block_expr           ::= "{" { expr ";" } [ expr ] "}"
+block                ::= "{" { expression ";" } [ expression ] "}"
 
-expr                 ::= simple_expr
-                       | bind_expr
-                       | return_expr
+expression           ::= return
+                       | bind
+                       | primary
 
-simple_expr          ::= assg_expr
-                       | bin_expr
-                       | unary_expr
+return               ::= "return" primary
+bind                 ::= "let" identifier ":" type "=" primary
+binary               ::= primary binary_operator primary
 
-bind_expr            ::= "let" ident ":" type "=" simple_expr
-return_expr          ::= "return" simple_expr
-assg_expr            ::= ident "=" simple_expr
-bin_expr             ::= pexpr binop simple_expr
-unary_expr           ::= unop primary
+primary              ::= literal
+                       | binary
+                       | identifier
+                       | call
+                       | separated
+                       | unary
+                       | block
+                       | condition
+                       | assignment
 
 
-pexpr                ::= literal
-                       | ident
-                       | call_expr
-                       | block_expr
-                       | sep_expr
-                       | con_expr
-
-con_expr             ::= "if" simple_expr expr
-                         { "else" "if" simple_expr expr }
-                         [ "else" expr ]
-call_expr            ::= ident "(" [ simple_expr { "," simple_expr } ] ")"
-sep_expr             ::= "(" simple_expr ")"
+assignment           ::= identifier "=" primary
+unary                ::= unary_operator primary
+condition            ::= "if" primary expression
+                         { "else" "if" primary expression }
+                         [ "else" expression ]
+call                 ::= identifier "(" [ primary { "," primary } ] ")"
+separated            ::= "(" primary ")"
 
 type                 ::= "int" | "bool" | "float" | "string" | "unit"
 
-ident                ::= "*."
+identifier           ::= "*."
 literal              ::= "*."
-binop                ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
-unop                 ::= "-" | "!"
+binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
+unary_operator       ::= "-" | "!"
 ```
