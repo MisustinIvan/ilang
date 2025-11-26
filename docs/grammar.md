@@ -3,43 +3,45 @@
 ```ebnf
 program              ::= { declaration | external_declaration }
 
-declaration          ::= type identififer "(" [ function_parameter { "," function_parameter } ] ")" block
-external_declaration ::= "extrn" type identifier "(" [ function_parameter { "," function_parameter } ] ")"
+declaration          ::= type identifier "(" function_parameters ")" block
+external_declaration ::= "extrn" type identifier "(" function_parameters ")"
+function_parameters  ::= [ function_parameter { "," function_parameter } ]
 function_parameter   ::= type identifier
 
 block                ::= "{" { expression ";" } [ expression ] "}"
 
 expression           ::= return
                        | bind
-                       | primary
+                       | assignment
+                       | value_expression
 
-return               ::= "return" primary
-bind                 ::= "let" identifier ":" type "=" primary
-binary               ::= primary binary_operator primary
+value_expression     ::= primary
+                       | binary
+                       | unary
+
+return               ::= "return" value_expression
+bind                 ::= "let" identifier ":" type "=" value_expression
+assignment           ::= identifier "=" value_expression
+
+binary               ::= primary binary_operator value_expression
+unary                ::= unary_operator primary
 
 primary              ::= literal
-                       | binary
                        | identifier
                        | call
                        | separated
-                       | unary
                        | block
                        | condition
-                       | assignment
+
+call                 ::= identifier "(" [ value_expression { "," value_expression } ] ")"
+separated            ::= "(" value_expression ")"
+condition            ::= "if" value_expression value_expression
+                         [ "else" value_expression ]
 
 
-assignment           ::= identifier "=" primary
-unary                ::= unary_operator primary
-condition            ::= "if" primary expression
-                         { "else" "if" primary expression }
-                         [ "else" expression ]
-call                 ::= identifier "(" [ primary { "," primary } ] ")"
-separated            ::= "(" primary ")"
-
-type                 ::= "int" | "bool" | "float" | "string" | "unit"
-
-identifier           ::= "*."
 literal              ::= "*."
+identifier           ::= "*."
+type                 ::= "int" | "bool" | "float" | "string" | "unit"
 binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
 unary_operator       ::= "-" | "!"
 ```
