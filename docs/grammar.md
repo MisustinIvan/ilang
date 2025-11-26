@@ -3,9 +3,8 @@
 ```ebnf
 program              ::= { declaration | external_declaration }
 
-declaration          ::= type identifier "(" function_parameters ")" block
-external_declaration ::= "extrn" type identifier "(" function_parameters ")"
-function_parameters  ::= [ function_parameter { "," function_parameter } ]
+declaration          ::= type identifier "(" [ function_parameter { "," function_parameter } ] ")" block
+external_declaration ::= "extrn" type identifier "(" [ function_parameter { "," function_parameter } ] ")"
 function_parameter   ::= type identifier
 
 block                ::= "{" { expression ";" } [ expression ] "}"
