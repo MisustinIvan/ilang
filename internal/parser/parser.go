@@ -156,12 +156,26 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	}
 
 	// parse parameters
-	for !p.matchCurrent(lexer.Punctuator, ")") {
+	if p.matchCurrent(lexer.Punctuator, ")") {
+		// No parameters
+	} else {
 		parameter, err := p.ParseFunctionParameter()
 		if err != nil {
 			return nil, err
 		}
 		Parameters = append(Parameters, *parameter)
+
+		for p.matchCurrent(lexer.Punctuator, ",") {
+			_, err = p.Expect(lexer.Punctuator, ",")
+			if err != nil {
+				return nil, err
+			}
+			parameter, err := p.ParseFunctionParameter()
+			if err != nil {
+				return nil, err
+			}
+			Parameters = append(Parameters, *parameter)
+		}
 	}
 
 	// consume closing paren
@@ -207,12 +221,26 @@ func (p *Parser) ParseDeclaration() (*ast.Declaration, error) {
 	}
 
 	// parse parameters
-	for !p.matchCurrent(lexer.Punctuator, ")") {
+	if p.matchCurrent(lexer.Punctuator, ")") {
+		// No parameters
+	} else {
 		parameter, err := p.ParseFunctionParameter()
 		if err != nil {
 			return nil, err
 		}
 		Parameters = append(Parameters, *parameter)
+
+		for p.matchCurrent(lexer.Punctuator, ",") {
+			_, err = p.Expect(lexer.Punctuator, ",")
+			if err != nil {
+				return nil, err
+			}
+			parameter, err := p.ParseFunctionParameter()
+			if err != nil {
+				return nil, err
+			}
+			Parameters = append(Parameters, *parameter)
+		}
 	}
 
 	// expect closing paren
@@ -511,6 +539,15 @@ func (p *Parser) ParseCall() (*ast.Call, error) {
 			return nil, err
 		}
 		Arguments = append(Arguments, value)
+
+		if p.matchCurrent(lexer.Punctuator, ",") {
+			_, err = p.Expect(lexer.Punctuator, ",")
+			if err != nil {
+				return nil, err
+			}
+		} else if !p.matchCurrent(lexer.Punctuator, ")") {
+			return nil, parseError("expected ',' or ')' in function call arguments", p.peek().Position)
+		}
 	}
 
 	_, err = p.Expect(lexer.Punctuator, ")")

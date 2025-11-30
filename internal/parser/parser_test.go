@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/MisustinIvan/ilang/internal/ast"
@@ -113,11 +114,10 @@ func TestParseUnary(t *testing.T) {
 	}
 }
 
-func tFatalf(t *testing.T, format string, args ...interface{}) {
+func tFatalf(t *testing.T, format string, args ...any) {
 	t.Helper()
 	t.Fatalf(format, args...)
 }
-
 
 func TestParseCondition(t *testing.T) {
 	tests := []struct {
@@ -337,4 +337,55 @@ func TestParseAssignment(t *testing.T) {
 	}
 }
 
+func TestParseExamples(t *testing.T) {
+	Examples := []string{
+		`
+		int add(int a, int b) {
+			let result: int = a + b;
+			return result;
+		}
+		`,
+		`
+		int main() {
+			if true { if false 0 else 1 } else 2
+		}
+		`,
+		`
+		int calc(int x, int y) {
+			return (1 + 2);
+		}
+		`,
+		`
+		extrn int printf(string format)
+		int main() {
+			let x: int = 10;
+			printf("Hello, %d", x);
+			return 0;
+		}
+		`,
+		`
+		int get_val() {
+			{
+				let a: int = 5;
+				a + 5
+			}
+		}
+		`,
+	}
 
+	for i, example := range Examples {
+		t.Run(fmt.Sprintf("Example%d", i), func(t *testing.T) {
+			l := lexer.New(lexer.NewSourceFile(fmt.Sprintf("example_%d.ilang", i), example))
+			tokens, err := l.Lex()
+			if err != nil {
+				t.Fatalf("Lexing failed for example %d: %v", i, err)
+			}
+
+			p := New(tokens)
+			_, err = p.Parse()
+			if err != nil {
+				t.Fatalf("Parsing failed for example %d: %v", i, err)
+			}
+		})
+	}
+}
