@@ -118,24 +118,25 @@ func tFatalf(t *testing.T, format string, args ...interface{}) {
 	t.Fatalf(format, args...)
 }
 
+
 func TestParseCondition(t *testing.T) {
 	tests := []struct {
-		input           string
+		input             string
 		expectedCondition string
-		expectedBody    string
-		expectedElse    string // "" if no else clause
+		expectedBody      string
+		expectedElse      string // "" if no else clause
 	}{
 		{
-			input:           "int main() { if true 1 }",
+			input:             "int main() { if true 1 }",
 			expectedCondition: "true",
-			expectedBody:    "1",
-			expectedElse:    "",
+			expectedBody:      "1",
+			expectedElse:      "",
 		},
 		{
-			input:           "int main() { if false 0 else 1 }",
+			input:             "int main() { if false 0 else 1 }",
 			expectedCondition: "false",
-			expectedBody:    "0",
-			expectedElse:    "1",
+			expectedBody:      "0",
+			expectedElse:      "1",
 		},
 	}
 
@@ -208,4 +209,132 @@ func TestParseCondition(t *testing.T) {
 		}
 	}
 }
+
+func TestParseReturn(t *testing.T) {
+	input := "int main() { return 1 }"
+	l := lexer.New(lexer.NewSourceFile("test", input))
+	tokens, err := l.Lex()
+	if err != nil {
+		t.Fatalf("Lexing failed: %v", err)
+	}
+
+	p := New(tokens)
+	program, err := p.Parse()
+	if err != nil {
+		tFatalf(t, "Parsing failed: %v", err)
+	}
+
+	if len(program.Declarations) != 1 {
+		t.Fatalf("Expected 1 declaration, got %d", len(program.Declarations))
+	}
+
+	decl := program.Declarations[0]
+	if len(decl.Body.Body) != 0 {
+		t.Fatalf("Expected 0 statements in body, got %d", len(decl.Body.Body))
+	}
+
+	if decl.Body.ImplicitReturn == nil {
+		t.Fatalf("Expected implicit return")
+	}
+
+	ret, ok := decl.Body.ImplicitReturn.(*ast.Return)
+	if !ok {
+		t.Fatalf("Expected Return expression, got %T", decl.Body.ImplicitReturn)
+	}
+
+	val, ok := ret.Value.(*ast.Literal)
+	if !ok {
+		t.Fatalf("Expected Literal for return value, got %T", ret.Value)
+	}
+	if val.Value != "1" {
+		t.Fatalf("Expected return value to be '1', got '%s'", val.Value)
+	}
+}
+
+func TestParseBind(t *testing.T) {
+	input := "int main() { let a: int = 1; }"
+	l := lexer.New(lexer.NewSourceFile("test", input))
+	tokens, err := l.Lex()
+	if err != nil {
+		t.Fatalf("Lexing failed: %v", err)
+	}
+
+	p := New(tokens)
+	program, err := p.Parse()
+	if err != nil {
+		tFatalf(t, "Parsing failed: %v", err)
+	}
+
+	if len(program.Declarations) != 1 {
+		t.Fatalf("Expected 1 declaration, got %d", len(program.Declarations))
+	}
+
+	decl := program.Declarations[0]
+	if len(decl.Body.Body) != 1 {
+		t.Fatalf("Expected 1 statement in body, got %d", len(decl.Body.Body))
+	}
+
+	bind, ok := decl.Body.Body[0].(*ast.Bind)
+	if !ok {
+		t.Fatalf("Expected Bind expression, got %T", decl.Body.Body[0])
+	}
+
+	if bind.Identifier.Name != "a" {
+		t.Fatalf("Expected identifier 'a', got '%s'", bind.Identifier.Name)
+	}
+
+	if bind.Type != ast.Int {
+		t.Fatalf("Expected type 'int', got '%s'", bind.Type)
+	}
+
+	val, ok := bind.Value.(*ast.Literal)
+	if !ok {
+		t.Fatalf("Expected Literal for bind value, got %T", bind.Value)
+	}
+	if val.Value != "1" {
+		t.Fatalf("Expected bind value to be '1', got '%s'", val.Value)
+	}
+}
+
+func TestParseAssignment(t *testing.T) {
+	input := "int main() { a = 1; }"
+	l := lexer.New(lexer.NewSourceFile("test", input))
+	tokens, err := l.Lex()
+	if err != nil {
+		t.Fatalf("Lexing failed: %v", err)
+	}
+
+	p := New(tokens)
+	program, err := p.Parse()
+	if err != nil {
+		tFatalf(t, "Parsing failed: %v", err)
+	}
+
+	if len(program.Declarations) != 1 {
+		t.Fatalf("Expected 1 declaration, got %d", len(program.Declarations))
+	}
+
+	decl := program.Declarations[0]
+	if len(decl.Body.Body) != 1 {
+		t.Fatalf("Expected 1 statement in body, got %d", len(decl.Body.Body))
+	}
+
+	assign, ok := decl.Body.Body[0].(*ast.Assignment)
+	if !ok {
+		t.Fatalf("Expected Assignment expression, got %T", decl.Body.Body[0])
+	}
+
+	if assign.Identifier.Name != "a" {
+		t.Fatalf("Expected identifier 'a', got '%s'", assign.Identifier.Name)
+	}
+
+	val, ok := assign.Value.(*ast.Literal)
+	if !ok {
+		t.Fatalf("Expected Literal for assignment value, got %T", assign.Value)
+	}
+	if val.Value != "1" {
+		t.Fatalf("Expected assignment value to be '1', got '%s'", val.Value)
+	}
+}
+
 
