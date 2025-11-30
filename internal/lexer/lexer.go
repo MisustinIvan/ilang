@@ -34,6 +34,13 @@ func ReadFile(path string) (*SourceFile, error) {
 	}, nil
 }
 
+func NewSourceFile(filename, content string) SourceFile {
+	return SourceFile{
+		filename: filename,
+		content:  content,
+	}
+}
+
 type Lexer struct {
 	source     SourceFile
 	source_len int

@@ -91,6 +91,20 @@ const (
 	LogicOr
 )
 
+var BinaryOperatorTokens = map[string]BinaryOperator{
+	"+":  Addition,
+	"-":  Subtraction,
+	"*":  Multiplication,
+	"/":  Division,
+	"==": Equality,
+	"<":  LessThan,
+	">":  GreaterThan,
+	"<=": LessThanEqual,
+	">=": GreaterThanEqual,
+	"&&": LogicAnd,
+	"||": LogicOr,
+}
+
 //go:generate stringer -type=UnaryOperator
 type UnaryOperator int
 
@@ -98,6 +112,11 @@ const (
 	Inversion UnaryOperator = iota
 	LogicNegation
 )
+
+var UnaryOperatorTokens = map[string]UnaryOperator{
+	"-": Inversion,
+	"!": LogicNegation,
+}
 
 // expressions
 

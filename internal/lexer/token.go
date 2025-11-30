@@ -35,12 +35,18 @@ func (t *Token) String() string {
 	return fmt.Sprintf("%s %s @ %s", t.Kind, t.Value, t.Position.String())
 }
 
+const KeywordLet = "let"
+const KeywordIf = "if"
+const KeywordElse = "else"
+const KeywordReturn = "return"
+const KeywordExtrn = "extrn"
+
 var KeywordTokens = map[string]bool{
-	"let":    true,
-	"if":     true,
-	"else":   true,
-	"return": true,
-	"extrn":  true,
+	KeywordLet:    true,
+	KeywordIf:     true,
+	KeywordElse:   true,
+	KeywordReturn: true,
+	KeywordExtrn:  true,
 }
 
 var PunctuatorTokens = map[string]bool{
