@@ -281,7 +281,7 @@ func (p *Parser) ParseBlock() (*ast.Block, error) {
 			return nil, err
 		}
 
-		if p.matchCurrent(lexer.Punctuator, ";") {
+		if p.matchCurrent(lexer.Punctuator, ";") && ImplicitReturn == nil {
 			// consume the semicolon
 			p.next()
 			Body = append(Body, expr)
