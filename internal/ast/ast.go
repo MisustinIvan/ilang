@@ -200,7 +200,8 @@ type (
 	}
 	Identifier struct {
 		PrimaryBase
-		Name string
+		Name     string
+		Resolved *Identifier
 	}
 	Call struct {
 		PrimaryBase
