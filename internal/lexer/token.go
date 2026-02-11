@@ -21,7 +21,7 @@ type Position struct {
 	Column int
 }
 
-func (p *Position) String() string {
+func (p Position) String() string {
 	return fmt.Sprintf("%s:%d:%d", p.File, p.Line, p.Column)
 }
 
