@@ -1,0 +1,7 @@
+extrn unit printf(string format)
+
+int main() {
+	let x: int = 10;
+	printf("Hello, %d", x);
+	return 0;
+}
