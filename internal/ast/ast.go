@@ -72,6 +72,10 @@ const (
 	Unit
 )
 
+func (t *Type) Accept(v Visitor) error {
+	return v.VisitType(t)
+}
+
 // operators
 //
 //go:generate stringer -type=BinaryOperator
