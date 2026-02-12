@@ -79,7 +79,7 @@ func (r *Resolver) VisitProgram(p *ast.Program) error {
 	}
 
 	for _, decl := range p.Declarations {
-		err = errors.Join(err, r.Declare(decl.Identifier))
+		err = errors.Join(err, decl.Accept(r))
 	}
 
 	r.PopScope() // global scope
