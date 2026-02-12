@@ -155,6 +155,7 @@ func (v *AstVisualizer) VisitBind(b *ast.Bind) error {
 	if err := b.Type.Accept(v); err != nil {
 		return err
 	}
+	v.WriteNode("Value")
 	return b.Value.Accept(v)
 }
 
@@ -166,6 +167,8 @@ func (v *AstVisualizer) VisitLiteral(l *ast.Literal) error {
 
 func (v *AstVisualizer) VisitIdentifier(i *ast.Identifier) error {
 	v.WriteNode("Identifier: %s", i.Name)
+	v.WriteNode("Resolved: %v", i.Resolved != nil)
+	v.Pop()
 	v.Pop()
 	return nil
 }
