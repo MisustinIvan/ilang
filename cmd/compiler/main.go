@@ -13,8 +13,8 @@ import (
 
 func main() {
 	input_path := flag.String("i", "", "input source code file")
-	dump_tokens := flag.Bool("tk", false, "dump tokens of the source file to tokens.txt")
-	dump_ast := flag.Bool("ast", false, "dump ast of the source file to graph.dot")
+	dump_tokens := flag.String("tk", "", "dump tokens of the source file to provided path")
+	dump_ast := flag.String("ast", "", "dump ast of the source file to provided path")
 
 	flag.Parse()
 
@@ -33,8 +33,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *dump_tokens {
-		file, err := os.Create("./tokens.txt")
+	if *dump_tokens != "" {
+		file, err := os.Create(*dump_tokens)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -60,13 +60,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *dump_ast {
+	if *dump_ast != "" {
 		visualizer := ast_visualizer.New(ast)
 		graph, err := visualizer.Visualize()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		os.WriteFile("./graph.dot", []byte(graph), os.ModePerm)
+		os.WriteFile(*dump_ast, []byte(graph), os.ModePerm)
 	}
 }
