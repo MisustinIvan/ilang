@@ -34,7 +34,7 @@ func NewChecker(prog *ast.Program) *Checker {
 	return c
 }
 
-func (c *Checker) ResolveTypes() (*ast.Program, error) { return c.prog, c.VisitProgram(c.prog) }
+func (c *Checker) CheckTypes() (*ast.Program, error) { return c.prog, c.VisitProgram(c.prog) }
 func (c *Checker) VisitProgram(p *ast.Program) error {
 	var err error
 

@@ -9,6 +9,7 @@ import (
 	"github.com/MisustinIvan/ilang/internal/lexer"
 	"github.com/MisustinIvan/ilang/internal/name_resolver"
 	"github.com/MisustinIvan/ilang/internal/parser"
+	"github.com/MisustinIvan/ilang/internal/type_checker"
 	"github.com/MisustinIvan/ilang/internal/type_resolver"
 )
 
@@ -63,6 +64,12 @@ func main() {
 
 	type_resolver := type_resolver.NewResolver(ast)
 	ast, err = type_resolver.ResolveTypes()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	type_checker := type_checker.NewChecker(ast)
+	ast, err = type_checker.CheckTypes()
 	if err != nil {
 		log.Fatal(err)
 	}
