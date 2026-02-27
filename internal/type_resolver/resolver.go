@@ -127,7 +127,7 @@ func (r *Resolver) VisitCall(c *ast.Call) error {
 		err = errors.Join(err, arg.Accept(r))
 	}
 
-	return nil
+	return err
 }
 
 func (r *Resolver) VisitSeparated(s *ast.Separated) error {
