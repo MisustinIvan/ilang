@@ -91,7 +91,7 @@ func (c *Checker) VisitCall(cl *ast.Call) error {
 			err = errors.Join(err, cl.Arguments[i].Accept(c))
 		}
 		if i >= len(declared_args) {
-			err = errors.Join(err, typeError(cl.Position, "unexpected function call argument"))
+			err = errors.Join(err, typeError(cl.Position, "unexpected function call argument %d", i))
 			continue
 		}
 		if i >= len(cl.Arguments) {
