@@ -109,6 +109,20 @@ var BinaryOperatorTokens = map[string]BinaryOperator{
 	"||": LogicOr,
 }
 
+var BinaryOperatorApplies = map[BinaryOperator]map[Type]bool{
+	Addition:         {Int: true, Float: true},
+	Subtraction:      {Int: true, Float: true},
+	Multiplication:   {Int: true, Float: true},
+	Division:         {Int: true, Float: true},
+	Equality:         {Int: true, Float: true, Bool: true, Unit: true},
+	LessThan:         {Int: true, Float: true},
+	GreaterThan:      {Int: true, Float: true},
+	LessThanEqual:    {Int: true, Float: true},
+	GreaterThanEqual: {Int: true, Float: true},
+	LogicAnd:         {Bool: true},
+	LogicOr:          {Bool: true},
+}
+
 //go:generate stringer -type=UnaryOperator
 type UnaryOperator int
 
@@ -120,6 +134,11 @@ const (
 var UnaryOperatorTokens = map[string]UnaryOperator{
 	"-": Inversion,
 	"!": LogicNegation,
+}
+
+var UnaryOperatorApplies = map[UnaryOperator]map[Type]bool{
+	Inversion:     {Int: true, Float: true},
+	LogicNegation: {Bool: true},
 }
 
 // expressions
