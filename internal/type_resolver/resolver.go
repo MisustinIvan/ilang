@@ -161,7 +161,7 @@ func (r *Resolver) VisitBlock(b *ast.Block) error {
 		err = errors.Join(err, b.ImplicitReturn.Accept(r))
 		b.SetType(b.ImplicitReturn.GetType())
 	} else {
-		b.SetType(ast.Undefined)
+		b.SetType(ast.Unit)
 	}
 
 	return err
