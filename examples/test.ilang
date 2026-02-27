@@ -3,5 +3,7 @@ extrn unit printf(string format)
 int main() {
 	let x: int = 10;
 	printf("Hello, %d", x);
+
+	let y: float = if true {0.5} else {0.69};
 	return 0;
 }
