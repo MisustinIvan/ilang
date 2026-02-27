@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type SourceFile struct {
@@ -115,14 +116,19 @@ func (l *Lexer) Lex() ([]Token, error) {
 			continue
 		}
 
-		// integer literals
+		// integer literals and float literals
 		if isDigit(c) {
 			startPos := l.currentPos()
 			start := l.head
-			for l.head < l.source_len && isDigit(l.current()) {
+			for l.head < l.source_len && (isDigit(l.current()) || l.current() == '.') {
 				l.next()
 			}
 			value := l.source.content[start:l.head]
+
+			if strings.Count(value, ".") > 1 {
+				return nil, fmt.Errorf("invalid float literal at %v", startPos)
+			}
+
 			l.output = append(l.output, Token{
 				Kind:     Literal,
 				Value:    value,
