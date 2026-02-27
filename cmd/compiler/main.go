@@ -9,6 +9,7 @@ import (
 	"github.com/MisustinIvan/ilang/internal/lexer"
 	"github.com/MisustinIvan/ilang/internal/name_resolver"
 	"github.com/MisustinIvan/ilang/internal/parser"
+	"github.com/MisustinIvan/ilang/internal/type_resolver"
 )
 
 func main() {
@@ -56,6 +57,12 @@ func main() {
 
 	resolver := name_resolver.NewResolver(ast)
 	ast, err = resolver.ResolveNames()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	type_resolver := type_resolver.NewResolver(ast)
+	ast, err = type_resolver.ResolveTypes()
 	if err != nil {
 		log.Fatal(err)
 	}
