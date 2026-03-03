@@ -1,3 +1,8 @@
+/*
+Implements a type resolver for the ast.Program using the ast.Visitor interface.
+It propagates types from the bottom up without checking any of them, which is
+left for the type checker.
+*/
 package type_resolver
 
 import (
