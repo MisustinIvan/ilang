@@ -76,6 +76,18 @@ func (t *Type) Accept(v Visitor) error {
 	return v.VisitType(t)
 }
 
+// Size() returns the size in bytes.
+func (t *Type) Size() int {
+	switch *t {
+	case Undefined, Unit:
+		return 0
+	case Int, Bool, Float, String:
+		return 4
+	default:
+		return 0
+	}
+}
+
 // operators
 //
 //go:generate stringer -type=BinaryOperator
