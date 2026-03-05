@@ -151,7 +151,11 @@ func (r *Resolver) VisitBinary(u *ast.Binary) error {
 	var err error
 	err = errors.Join(err, u.Left.Accept(r))
 	err = errors.Join(err, u.Right.Accept(r))
-	u.SetType(u.Left.GetType()) // assume this type and check the right side later
+	if ast.BoolOperators[u.Operator] {
+		u.SetType(ast.Bool)
+	} else {
+		u.SetType(u.Left.GetType()) // assume this type and check the right side later
+	}
 	return err
 }
 

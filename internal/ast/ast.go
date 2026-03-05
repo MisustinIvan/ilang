@@ -132,13 +132,25 @@ var BinaryOperatorApplies = map[BinaryOperator]map[Type]bool{
 	Subtraction:    {Int: true, Float: true},
 	Multiplication: {Int: true, Float: true},
 	Division:       {Int: true, Float: true},
-	Equality:       {Int: true, Float: true, Bool: true, Unit: true},
+	Equality:       {Int: true, Float: true, Bool: true},
+	Inequality:     {Int: true, Float: true, Bool: true},
 	Less:           {Int: true, Float: true},
 	Greater:        {Int: true, Float: true},
 	LessEqual:      {Int: true, Float: true},
 	GreaterEqual:   {Int: true, Float: true},
+	ShiftLeft:      {Int: true},
+	ShiftRight:     {Int: true},
 	LogicAnd:       {Bool: true},
 	LogicOr:        {Bool: true},
+}
+
+var BoolOperators = map[BinaryOperator]bool{
+	Equality:     true,
+	Inequality:   true,
+	Less:         true,
+	Greater:      true,
+	LessEqual:    true,
+	GreaterEqual: true,
 }
 
 //go:generate stringer -type=UnaryOperator
