@@ -82,7 +82,7 @@ func (t *Type) Size() int {
 	case Undefined, Unit:
 		return 0
 	case Int, Bool, Float, String:
-		return 4
+		return 8
 	default:
 		return 0
 	}
