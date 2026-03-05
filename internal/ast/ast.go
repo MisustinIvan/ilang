@@ -99,10 +99,13 @@ const (
 	Multiplication
 	Division
 	Equality
-	LessThan
-	GreaterThan
-	LessThanEqual
-	GreaterThanEqual
+	Inequality
+	Less
+	Greater
+	LessEqual
+	GreaterEqual
+	ShiftLeft
+	ShiftRight
 	LogicAnd
 	LogicOr
 )
@@ -113,26 +116,29 @@ var BinaryOperatorTokens = map[string]BinaryOperator{
 	"*":  Multiplication,
 	"/":  Division,
 	"==": Equality,
-	"<":  LessThan,
-	">":  GreaterThan,
-	"<=": LessThanEqual,
-	">=": GreaterThanEqual,
+	"!=": Equality,
+	"<":  Less,
+	">":  Greater,
+	"<=": LessEqual,
+	">=": GreaterEqual,
+	"<<": ShiftLeft,
+	">>": ShiftRight,
 	"&&": LogicAnd,
 	"||": LogicOr,
 }
 
 var BinaryOperatorApplies = map[BinaryOperator]map[Type]bool{
-	Addition:         {Int: true, Float: true},
-	Subtraction:      {Int: true, Float: true},
-	Multiplication:   {Int: true, Float: true},
-	Division:         {Int: true, Float: true},
-	Equality:         {Int: true, Float: true, Bool: true, Unit: true},
-	LessThan:         {Int: true, Float: true},
-	GreaterThan:      {Int: true, Float: true},
-	LessThanEqual:    {Int: true, Float: true},
-	GreaterThanEqual: {Int: true, Float: true},
-	LogicAnd:         {Bool: true},
-	LogicOr:          {Bool: true},
+	Addition:       {Int: true, Float: true},
+	Subtraction:    {Int: true, Float: true},
+	Multiplication: {Int: true, Float: true},
+	Division:       {Int: true, Float: true},
+	Equality:       {Int: true, Float: true, Bool: true, Unit: true},
+	Less:           {Int: true, Float: true},
+	Greater:        {Int: true, Float: true},
+	LessEqual:      {Int: true, Float: true},
+	GreaterEqual:   {Int: true, Float: true},
+	LogicAnd:       {Bool: true},
+	LogicOr:        {Bool: true},
 }
 
 //go:generate stringer -type=UnaryOperator
