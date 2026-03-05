@@ -116,7 +116,7 @@ var BinaryOperatorTokens = map[string]BinaryOperator{
 	"*":  Multiplication,
 	"/":  Division,
 	"==": Equality,
-	"!=": Equality,
+	"!=": Inequality,
 	"<":  Less,
 	">":  Greater,
 	"<=": LessEqual,
