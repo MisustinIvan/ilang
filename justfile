@@ -11,6 +11,21 @@ ast-dump example='test.ilang':
 	sxiv graph.png
 	niri msg action focus-workspace 'terminal'
 
+alias as := assembly-dump
+assembly-dump example='test.ilang':
+	go run cmd/compiler/main.go -i ./examples/{{example}} -s example.s
+
+alias tk := token-dump
+token-dump example='test.ilang':
+	go run cmd/compiler/main.go -i ./examples/{{example}} -tk example.txt
+
+alias r := run
+run example='test.ilang':
+	go run cmd/compiler/main.go -i ./examples/{{example}} -s example.s
+	gcc -g -no-pie -o example example.s
+	chmod +x example
+	./example
+
 alias c := clean
 clean:
 	rm example.dot
