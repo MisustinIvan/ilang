@@ -12,23 +12,34 @@ func typeError(position lexer.Position, format string, args ...any) error {
 	return fmt.Errorf("%v at %s", fmt.Errorf(format, args...), position)
 }
 
+type Function struct {
+	Params   []ast.Parameter
+	Variadic bool
+}
+
 type Checker struct {
 	prog         *ast.Program
-	declarations map[*ast.Identifier][]ast.Parameter
+	declarations map[*ast.Identifier]Function
 }
 
 func NewChecker(prog *ast.Program) *Checker {
 	c := &Checker{
 		prog:         prog,
-		declarations: make(map[*ast.Identifier][]ast.Parameter),
+		declarations: make(map[*ast.Identifier]Function),
 	}
 
 	for _, decl := range prog.Declarations {
-		c.declarations[decl.Identifier] = decl.Params
+		c.declarations[decl.Identifier] = Function{
+			Params:   decl.Params,
+			Variadic: false,
+		}
 	}
 
 	for _, decl := range prog.ExternalDeclarations {
-		c.declarations[decl.Identifier] = decl.Params
+		c.declarations[decl.Identifier] = Function{
+			Params:   decl.Params,
+			Variadic: decl.Variadic,
+		}
 	}
 
 	return c
@@ -80,17 +91,23 @@ func (c *Checker) VisitIdentifier(i *ast.Identifier) error { return nil }
 func (c *Checker) VisitCall(cl *ast.Call) error {
 	var err error
 
-	declared_args, ok := c.declarations[cl.Identifier.Resolved]
+	function, ok := c.declarations[cl.Identifier.Resolved]
 	if !ok {
 		return typeError(cl.Position, "calling unresolved function %s", cl.Identifier.Name)
 	}
 
+	declared_args := function.Params
+	is_variadic := function.Variadic
+
 	param_len := max(len(cl.Arguments), len(declared_args))
-	for i := range param_len {
+	for i := 0; i < param_len; i++ {
 		if i < len(cl.Arguments) {
 			err = errors.Join(err, cl.Arguments[i].Accept(c))
 		}
 		if i >= len(declared_args) {
+			if is_variadic {
+				continue
+			}
 			err = errors.Join(err, typeError(cl.Position, "unexpected function call argument %d", i))
 			continue
 		}
