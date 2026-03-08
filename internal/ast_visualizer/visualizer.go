@@ -129,6 +129,12 @@ func (v *AstVisualizer) VisitExternalDeclaration(d *ast.ExternalDeclaration) err
 	if err := d.Identifier.Accept(v); err != nil {
 		return err
 	}
+
+	if d.Variadic {
+		v.WriteNode("Variadic: true", none)
+		v.Pop()
+	}
+
 	v.WriteNode("Parameters", none)
 	for _, param := range d.Params {
 		if err := param.Accept(v); err != nil {
