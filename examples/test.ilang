@@ -1,4 +1,4 @@
-extrn unit printf(string format, int val)
+extrn unit printf(string format, ...)
 
 int add2(int a, int b) {
 	a + b
@@ -8,8 +8,16 @@ int fac(int n) {
 	if n == 0 { 1 } else { n*fac(n-1) }
 }
 
+int fib(int n) {
+	if n == 0 { 0 } else
+	if n == 1 { 1 } else
+	if n == 2 { 1 } else
+	fib(n-1) + fib(n-2)
+}
+
 unit main() {
 	let x: int = add2(6,7);
 	printf("add2(6,7) = %d\n", add2(6,7));
 	printf("fac(5) = %d\n", fac(5));
+	printf("fib(12) = %d\n", fib(12));
 }
