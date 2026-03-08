@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/MisustinIvan/ilang/internal/ast_visualizer"
+	"github.com/MisustinIvan/ilang/internal/code_generator"
 	"github.com/MisustinIvan/ilang/internal/lexer"
 	"github.com/MisustinIvan/ilang/internal/name_resolver"
 	"github.com/MisustinIvan/ilang/internal/parser"
@@ -15,6 +16,7 @@ import (
 
 func main() {
 	input_path := flag.String("i", "", "input source code file")
+	dump_assembly := flag.String("s", "", "dump generated assembly to provided path")
 	dump_tokens := flag.String("tk", "", "dump tokens of the source file to provided path")
 	dump_ast := flag.String("ast", "", "dump ast of the source file to provided path")
 
@@ -82,5 +84,15 @@ func main() {
 		}
 
 		os.WriteFile(*dump_ast, []byte(graph), os.ModePerm)
+	}
+
+	codeGenerator := code_generator.New(ast)
+	assembly, err := codeGenerator.Generate()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if *dump_assembly != "" {
+		os.WriteFile(*dump_assembly, []byte(assembly), os.ModePerm)
 	}
 }
