@@ -1,0 +1,15 @@
+extrn unit printf(string format, ...)
+
+int fac(int n) {
+	if n == 0 { 1 } else { n*fac(n-1) }
+}
+
+unit main() {
+	printf("fac(1) = %d\n", fac(1));
+	printf("fac(2) = %d\n", fac(2));
+	printf("fac(3) = %d\n", fac(3));
+	printf("fac(4) = %d\n", fac(4));
+	printf("fac(5) = %d\n", fac(5));
+	printf("fac(6) = %d\n", fac(6));
+	printf("fac(7) = %d\n", fac(7));
+}
