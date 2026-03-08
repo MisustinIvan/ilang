@@ -192,6 +192,18 @@ func (l *Lexer) Lex() ([]Token, error) {
 		}
 
 		// punctuators
+		if c == '.' && l.head+2 < l.source_len && l.source.content[l.head+1] == '.' && l.source.content[l.head+2] == '.' {
+			l.output = append(l.output, Token{
+				Kind:     Punctuator,
+				Value:    "...",
+				Position: l.currentPos(),
+			})
+			l.next()
+			l.next()
+			l.next()
+			continue
+		}
+
 		if PunctuatorTokens[string(c)] {
 			l.output = append(l.output, Token{
 				Kind:     Punctuator,
@@ -207,7 +219,7 @@ func (l *Lexer) Lex() ([]Token, error) {
 			startPos := l.currentPos()
 			start := l.head
 
-			for l.headInBounds() && !isDigit(l.current()) && !isWhitespace(l.current()) && !isLetter(l.current()) {
+			for l.headInBounds() && !isDigit(l.current()) && !isWhitespace(l.current()) && !isLetter(l.current()) && !PunctuatorTokens[string(l.current())] && l.current() != '.' {
 				l.next()
 			}
 

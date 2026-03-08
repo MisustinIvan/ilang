@@ -50,13 +50,14 @@ var KeywordTokens = map[string]bool{
 }
 
 var PunctuatorTokens = map[string]bool{
-	"(": true,
-	")": true,
-	"{": true,
-	"}": true,
-	";": true,
-	":": true,
-	",": true,
+	"(":   true,
+	")":   true,
+	"{":   true,
+	"}":   true,
+	";":   true,
+	":":   true,
+	",":   true,
+	"...": true,
 }
 
 var OperatorTokens = map[string]bool{

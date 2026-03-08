@@ -116,7 +116,7 @@ func TestLex(t *testing.T) {
 			name: "Punctuators",
 			source: SourceFile{
 				filename: "test.ilang",
-				content:  "(){};:,",
+				content:  "(){};:,...",
 			},
 			expected: []Token{
 				{Kind: Punctuator, Value: "("},
@@ -126,6 +126,7 @@ func TestLex(t *testing.T) {
 				{Kind: Punctuator, Value: ";"},
 				{Kind: Punctuator, Value: ":"},
 				{Kind: Punctuator, Value: ","},
+				{Kind: Punctuator, Value: "..."},
 			},
 			expectedError: false,
 		},
