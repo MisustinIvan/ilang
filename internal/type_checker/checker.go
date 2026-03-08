@@ -100,7 +100,7 @@ func (c *Checker) VisitCall(cl *ast.Call) error {
 	is_variadic := function.Variadic
 
 	param_len := max(len(cl.Arguments), len(declared_args))
-	for i := 0; i < param_len; i++ {
+	for i := range param_len {
 		if i < len(cl.Arguments) {
 			err = errors.Join(err, cl.Arguments[i].Accept(c))
 		}
