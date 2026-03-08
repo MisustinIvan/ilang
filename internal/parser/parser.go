@@ -125,11 +125,12 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error
 // ParseExternalDeclaration parses an external function declaration according
 // to the grammar:
 //
-// external_declaration ::= "extrn" type identifier "(" [ function_parameter { "," function_parameter } ] ")"
+// external_declaration ::= "extrn" type identifier "(" [ function_parameter { "," function_parameter } ["," "..."] ] | "..." ")"
 func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	var Type *ast.Type
 	var Identifier *ast.Identifier
 	var Parameters []ast.Parameter
+	var Variadic = false
 
 	// expect "extrn" keyword
 	_, err := p.Expect(lexer.Keyword, lexer.KeywordExtrn)
@@ -158,6 +159,12 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	// parse parameters
 	if p.matchCurrent(lexer.Punctuator, ")") {
 		// No parameters
+	} else if p.matchCurrent(lexer.Punctuator, "...") {
+		Variadic = true
+		_, err = p.Expect(lexer.Punctuator, "...")
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		parameter, err := p.ParseFunctionParameter()
 		if err != nil {
@@ -170,6 +177,16 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			if p.matchCurrent(lexer.Punctuator, "...") {
+				Variadic = true
+				_, err = p.Expect(lexer.Punctuator, "...")
+				if err != nil {
+					return nil, err
+				}
+				break
+			}
+
 			parameter, err := p.ParseFunctionParameter()
 			if err != nil {
 				return nil, err
@@ -188,6 +205,7 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 		Type:       *Type,
 		Identifier: Identifier,
 		Params:     Parameters,
+		Variadic:   Variadic,
 	}
 
 	return decl, nil

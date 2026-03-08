@@ -45,6 +45,7 @@ type (
 		Type       Type
 		Identifier *Identifier
 		Params     []Parameter
+		Variadic   bool
 	}
 
 	Parameter struct {
