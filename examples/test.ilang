@@ -1,9 +1,15 @@
 extrn unit printf(string format, int val)
 
-int main() {
-	let x: int = 10;
-	printf("Hello, %d", x);
+int add2(int a, int b) {
+	a + b
+}
 
-	let y: float = if true {0.5} else {0.69};
-	return 0
+int fac(int n) {
+	if n == 0 { 1 } else { n*fac(n-1) }
+}
+
+unit main() {
+	let x: int = add2(6,7);
+	printf("add2(6,7) = %d\n", add2(6,7));
+	printf("fac(5) = %d\n", fac(5));
 }
