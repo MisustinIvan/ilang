@@ -371,6 +371,18 @@ func TestParseExamples(t *testing.T) {
 			}
 		}
 		`,
+		`
+		extrn unit printf(string format, ...)
+		int main() {
+			printf("Hello, %d", 10);
+		}
+		`,
+		`
+		extrn unit printf(...)
+		int main() {
+			printf("Hello, %d", 10);
+		}
+		`,
 	}
 
 	for i, example := range Examples {
