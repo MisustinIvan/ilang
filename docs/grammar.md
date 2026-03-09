@@ -39,9 +39,10 @@ condition            ::= "if" value value
 
 
 literal              ::= "*."
+int_literal          ::= "*."
 identifier           ::= "*."
 type                 ::= basic_type | array_type
-array_type           ::= "[" value "]" basic_type
+array_type           ::= "[" int_literal "]" basic_type
 basic_type           ::= "int" | "bool" | "float" | "string" | "unit"
 binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
 unary_operator       ::= "-" | "!"
