@@ -79,7 +79,7 @@ func (c *Checker) VisitReturn(e *ast.Return) error                           { r
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
 
-	if b.Type != b.Value.GetType() {
+	if !b.Type.Equals(b.Value.GetType()) {
 		err = errors.Join(err, typeError(b.Position, "bound value type: %v does not match expected type: %v", b.Value.GetType(), b.Type))
 	}
 	err = errors.Join(err, b.Value.Accept(c))
@@ -149,7 +149,7 @@ func (c *Checker) VisitBinary(u *ast.Binary) error {
 	err = errors.Join(err, u.Left.Accept(c))
 	err = errors.Join(err, u.Right.Accept(c))
 
-	if u.Left.GetType() != u.Right.GetType() {
+	if !u.Left.GetType().Equals(u.Right.GetType()) {
 		err = errors.Join(err, typeError(u.Position, "binary expression types dont match - %v vs %v", u.Left.GetType(), u.Right.GetType()))
 	}
 	t, ok := u.Left.GetType().(*ast.BasicType)
@@ -190,7 +190,7 @@ func (c *Checker) VisitCondition(cd *ast.Condition) error {
 	}
 
 	if cd.Else != nil {
-		if cd.Body.GetType() != cd.Else.GetType() {
+		if !cd.Body.GetType().Equals(cd.Else.GetType()) {
 			err = errors.Join(err, typeError(cd.GetPosition(), "both branches of condition dont have the same type - %v vs %v", cd.Body.GetType(), cd.Else.GetType()))
 		}
 	}
@@ -202,7 +202,7 @@ func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 
 	err = errors.Join(err, a.Value.Accept(c))
 	if a.Identifier.Resolved != nil {
-		if a.Value.GetType() != a.Identifier.Resolved.GetType() {
+		if !a.Value.GetType().Equals(a.Identifier.Resolved.GetType()) {
 			err = errors.Join(err, typeError(a.GetPosition(), "assigning value of type %v to variable of type %v", a.Value.GetType(), a.Identifier.Resolved.GetType()))
 		}
 	}
