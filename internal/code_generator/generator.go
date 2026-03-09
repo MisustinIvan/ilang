@@ -41,8 +41,8 @@ type localFinder struct {
 }
 
 func (f *localFinder) declareLocal(size int, identifier *ast.Identifier) {
-	f.locals[identifier] = f.stackOffset
 	f.stackOffset += size
+	f.locals[identifier] = f.stackOffset
 }
 
 func (f *localFinder) VisitProgram(p *ast.Program) error                         { return nil }
@@ -123,7 +123,7 @@ func (f *localFinder) VisitAssignment(a *ast.Assignment) error {
 
 func findLocals(d *ast.Declaration) (map[*ast.Identifier]int, int) {
 	l := &localFinder{
-		stackOffset: 8, // start stack offset at 8 to prevent stack corruption
+		stackOffset: 0,
 		locals:      map[*ast.Identifier]int{},
 	}
 
@@ -317,16 +317,29 @@ func (g *Generator) VisitReturn(r *ast.Return) error {
 // the stack.
 func (g *Generator) VisitBind(b *ast.Bind) error {
 	g.writeln("# bind expression")
-	g.writeln("# value")
-	err := b.Value.Accept(g)
-	if err != nil {
-		return err
+	offset := g.ctx.locals[b.Identifier]
+
+	if arrayType, isArray := b.Type.(*ast.ArrayType); isArray {
+		if literal, isLiteral := b.Value.(*ast.Literal); isLiteral && literal.Value == "0" {
+			g.writeln("# array zero-initialization")
+			g.writeln("xor %rax, %rax")
+
+			count := (arrayType.Size() + 7) / 8
+			g.writefln("mov $%d, %%rcx", count)
+			g.writefln("lea -%d(%%rbp), %%rdi", offset)
+			g.writeln("rep stosq")
+		} else {
+			return generatorError(b.Position, "only zero-intialization is allowed for arrays for now")
+		}
+	} else {
+		g.writeln("# scalar value binding")
+		if err := b.Value.Accept(g); err != nil {
+			return err
+		}
+		// Expecting the bound value to be stored in %rax
+		g.writefln("mov %%rax, -%d(%%rbp)", offset)
 	}
 
-	// expecting the bound value to be stored in %rax
-	offset := g.ctx.locals[b.Identifier]
-	g.writeln("# move value to local")
-	g.writefln("mov %%rax, -%d(%%rbp)", offset)
 	return nil
 }
 
