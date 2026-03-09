@@ -64,7 +64,7 @@ func (c *Checker) VisitDeclaration(d *ast.Declaration) error {
 	var err error
 
 	err = errors.Join(err, d.Body.Accept(c))
-	if d.Body.GetType() != d.Type {
+	if !d.Body.GetType().Equals(&d.Type) {
 		err = errors.Join(err, typeError(d.Body.Position, "body type: %v does not match function type: %v", d.Body.GetType(), d.Type))
 	}
 
@@ -73,7 +73,8 @@ func (c *Checker) VisitDeclaration(d *ast.Declaration) error {
 
 func (c *Checker) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { return nil } // here everything should be fine
 func (c *Checker) VisitArgument(a *ast.Argument) error                       { return nil }
-func (c *Checker) VisitType(t *ast.Type) error                               { return nil }
+func (c *Checker) VisitBasicType(t *ast.BasicType) error                     { return nil }
+func (c *Checker) VisitArrayType(t *ast.ArrayType) error                     { return nil }
 func (c *Checker) VisitReturn(e *ast.Return) error                           { return e.Value.Accept(c) }
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
@@ -118,7 +119,7 @@ func (c *Checker) VisitCall(cl *ast.Call) error {
 		expected := declared_args[i].Type
 		got := cl.Arguments[i].GetType()
 
-		if expected != got {
+		if !expected.Equals(got) {
 			err = errors.Join(err, typeError(cl.Position, "argument types dont match - %v vs %v - at index %d", expected, got, i))
 		}
 	}
@@ -131,7 +132,11 @@ func (c *Checker) VisitUnary(u *ast.Unary) error {
 	var err error
 
 	err = errors.Join(err, u.Value.Accept(c))
-	if !ast.UnaryOperatorApplies[u.Operator][u.Value.GetType()] {
+	t, ok := u.Value.GetType().(*ast.BasicType)
+	if t == nil || !ok {
+		return typeError(u.Position, "unary expression value does is not basic type: %s", u.GetType().String())
+	}
+	if !ast.UnaryOperatorApplies[u.Operator][*t] {
 		err = errors.Join(err, typeError(u.Position, "unary operator does not apply to type %v", u.Value.GetType()))
 	}
 
@@ -147,7 +152,11 @@ func (c *Checker) VisitBinary(u *ast.Binary) error {
 	if u.Left.GetType() != u.Right.GetType() {
 		err = errors.Join(err, typeError(u.Position, "binary expression types dont match - %v vs %v", u.Left.GetType(), u.Right.GetType()))
 	}
-	if !ast.BinaryOperatorApplies[u.Operator][u.Left.GetType()] {
+	t, ok := u.Left.GetType().(*ast.BasicType)
+	if t == nil || !ok {
+		return typeError(u.GetPosition(), "left value is not of basic type: %s", u.Left.GetType().String())
+	}
+	if !ast.BinaryOperatorApplies[u.Operator][*t] {
 		err = errors.Join(err, typeError(u.Position, "binary operator %v does not apply to type %v", u.Operator.String(), u.Left.GetType()))
 	}
 
@@ -176,7 +185,7 @@ func (c *Checker) VisitCondition(cd *ast.Condition) error {
 		err = errors.Join(err, cd.Else.Accept(c))
 	}
 
-	if cd.Condition.GetType() != ast.Bool {
+	if !cd.Condition.GetType().Equals(ast.BasicTypePtr(ast.Bool)) {
 		err = errors.Join(err, typeError(cd.Condition.GetPosition(), "condition of type %v must be of type bool", cd.Condition.GetType()))
 	}
 
