@@ -8,6 +8,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/MisustinIvan/ilang/internal/ast"
 	"github.com/MisustinIvan/ilang/internal/lexer"
@@ -125,9 +126,9 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error
 // ParseExternalDeclaration parses an external function declaration according
 // to the grammar:
 //
-// external_declaration ::= "extrn" type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
+// external_declaration ::= "extrn" basic_type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
 func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
-	var Type *ast.Type
+	var Type *ast.BasicType
 	var Identifier *ast.Identifier
 	var Arguments []ast.Argument
 	var Variadic = false
@@ -139,7 +140,7 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	}
 
 	// parse type
-	Type, err = p.ParseType()
+	Type, err = p.ParseBasicType()
 	if err != nil {
 		return nil, err
 	}
@@ -213,15 +214,15 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 
 // ParseDeclaration parses a function declaration according to the grammar:
 //
-// declaration          ::= type identifier "(" [ function_argument { "," function_argument } ] ")" block
+// declaration          ::= basic_type identifier "(" [ function_argument { "," function_argument } ] ")" block
 func (p *Parser) ParseDeclaration() (*ast.Declaration, error) {
-	var Type *ast.Type
+	var Type *ast.BasicType
 	var Identifier *ast.Identifier
 	var Arguments []ast.Argument
 	var Body *ast.Block
 
 	// parse type
-	Type, err := p.ParseType()
+	Type, err := p.ParseBasicType()
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +373,7 @@ func (p *Parser) ParseReturn() (*ast.Return, error) {
 // bind                 ::= "let" identifier ":" type "=" value
 func (p *Parser) ParseBind() (*ast.Bind, error) {
 	var Identifier *ast.Identifier
-	var Type *ast.Type
+	var Type ast.Type
 	var Value ast.Value
 
 	let_tk, err := p.Expect(lexer.Keyword, lexer.KeywordLet)
@@ -407,7 +408,7 @@ func (p *Parser) ParseBind() (*ast.Bind, error) {
 
 	bind := &ast.Bind{
 		Identifier: Identifier,
-		Type:       *Type,
+		Type:       Type,
 		Value:      Value,
 	}
 	bind.SetPosition(let_tk.Position)
@@ -690,12 +691,12 @@ func (p *Parser) ParseUnary() (*ast.Unary, error) {
 
 // ParseFunctionArgument parses a function argument according to the grammar:
 //
-// function_argument   ::= type identifier
+// function_argument    ::= basic_type identifier
 func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
-	var Type *ast.Type
+	var Type *ast.BasicType
 	var Identifier *ast.Identifier
 
-	Type, err := p.ParseType()
+	Type, err := p.ParseBasicType()
 	if err != nil {
 		return nil, err
 	}
@@ -713,29 +714,78 @@ func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
 
 // ParseType parses a type according to the grammar:
 //
-// type                 ::= "int" | "bool" | "float" | "string" | "unit"
-func (p *Parser) ParseType() (*ast.Type, error) {
-	token, err := p.Expect(lexer.Identifier, "")
+// type                 ::= basic_type | array_type
+func (p *Parser) ParseType() (ast.Type, error) {
+	if p.matchCurrent(lexer.Punctuator, "[") {
+		return p.ParseArrayType()
+	} else if p.matchCurrent(lexer.Identifier, "") {
+		return p.ParseBasicType()
+	}
+	return nil, parseError("invalid type", p.peek().Position)
+}
+
+// ParseArrayType parses an array type according to the grammar:
+//
+// array_type           ::= "[" value "]" basic_type
+func (p *Parser) ParseArrayType() (*ast.ArrayType, error) {
+	var Length int
+	var BasicType *ast.BasicType
+	if _, err := p.Expect(lexer.Punctuator, "["); err != nil {
+		return nil, err
+	}
+
+	tk, err := p.next()
 	if err != nil {
 		return nil, err
 	}
 
-	var Type ast.Type = ast.Undefined
-
-	switch token.Value {
-	case "int":
-		Type = ast.Int
-	case "bool":
-		Type = ast.Bool
-	case "float":
-		Type = ast.Float
-	case "string":
-		Type = ast.String
-	case "unit":
-		Type = ast.Unit
+	Length, err = strconv.Atoi(tk.Value)
+	if err != nil {
+		return nil, err
 	}
 
-	return &Type, nil
+	if _, err := p.Expect(lexer.Punctuator, "]"); err != nil {
+		return nil, err
+	}
+
+	BasicType, err = p.ParseBasicType()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ast.ArrayType{
+		Element: *BasicType,
+		Length:  Length,
+	}, nil
+}
+
+// ParseBasicType parses a basic type according to the grammar:
+//
+// basic_type           ::= "int" | "bool" | "float" | "string" | "unit"
+func (p *Parser) ParseBasicType() (*ast.BasicType, error) {
+	var BasicType ast.BasicType
+
+	tk, err := p.Expect(lexer.Identifier, "")
+	if err != nil {
+		return nil, err
+	}
+
+	switch tk.Value {
+	case "int":
+		BasicType = ast.Int
+	case "bool":
+		BasicType = ast.Bool
+	case "float":
+		BasicType = ast.Float
+	case "string":
+		BasicType = ast.String
+	case "unit":
+		BasicType = ast.Unit
+	default:
+		return nil, parseError(fmt.Sprintf("invalid type %s", tk.Value), tk.Position)
+	}
+
+	return &BasicType, nil
 }
 
 // ParseIdentifier parses an identifier according to the grammar:

@@ -283,7 +283,7 @@ func TestParseBind(t *testing.T) {
 		t.Fatalf("Expected identifier 'a', got '%s'", bind.Identifier.Name)
 	}
 
-	if bind.Type != ast.Int {
+	if !bind.Type.Equals(ast.BasicTypePtr(ast.Int)) {
 		t.Fatalf("Expected type 'int', got '%s'", bind.Type)
 	}
 

@@ -81,6 +81,10 @@ const (
 	Undefined
 )
 
+func BasicTypePtr(t BasicType) *BasicType {
+	return &t
+}
+
 func (b *BasicType) Size() int {
 	switch *b {
 	case Int, Float, Bool, String:
