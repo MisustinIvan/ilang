@@ -324,8 +324,8 @@ func TestParseAssignment(t *testing.T) {
 		t.Fatalf("Expected Assignment expression, got %T", decl.Body.Body[0])
 	}
 
-	if assign.Identifier.Name != "a" {
-		t.Fatalf("Expected identifier 'a', got '%s'", assign.Identifier.Name)
+	if assign.Target.(*ast.Identifier).Name != "a" {
+		t.Fatalf("Expected identifier 'a', got '%s'", assign.Target.(*ast.Identifier).Name)
 	}
 
 	val, ok := assign.Value.(*ast.Literal)
