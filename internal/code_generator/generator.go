@@ -375,8 +375,14 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 	if !exists {
 		return generatorError(i.Position, "unresolved identifier - \"%s\"", i.Name)
 	}
-	g.writeln("# move resolved value to %rax")
-	g.writefln("mov -%d(%%rbp), %%rax", offset)
+
+	if _, isArray := i.Resolved.GetType().(*ast.ArrayType); isArray {
+		g.writeln("# move resolved address of array type to %rax")
+		g.writefln("lea -%d(%%rbp), %%rax", offset)
+	} else {
+		g.writeln("# move resolved value of simple type to %rax")
+		g.writefln("mov -%d(%%rbp), %%rax", offset)
+	}
 
 	return nil
 }
