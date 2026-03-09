@@ -155,7 +155,7 @@ func (v *AstVisualizer) VisitArgument(a *ast.Argument) error {
 	return a.Identifier.Accept(v)
 }
 
-func (v *AstVisualizer) writeType(t ast.Type) {
+func (v *AstVisualizer) writeBasicType(t ast.BasicType) {
 	var color color
 
 	switch t {
@@ -173,12 +173,19 @@ func (v *AstVisualizer) writeType(t ast.Type) {
 		color = light_blue
 	}
 
-	v.WriteNode("Type: %s", color, t.String())
+	v.WriteNode("BasicType: %s", color, t.String())
 	v.Pop()
 }
 
-func (v *AstVisualizer) VisitType(t *ast.Type) error {
-	v.writeType(*t)
+func (v *AstVisualizer) VisitBasicType(t *ast.BasicType) error {
+	v.writeBasicType(*t)
+	return nil
+}
+
+func (v *AstVisualizer) VisitArrayType(t *ast.ArrayType) error {
+	v.WriteNode("ArrayType", orange)
+	defer v.Pop()
+	v.writeBasicType(t.Element)
 	return nil
 }
 
@@ -205,7 +212,7 @@ func (v *AstVisualizer) VisitBind(b *ast.Bind) error {
 
 func (v *AstVisualizer) VisitLiteral(l *ast.Literal) error {
 	v.WriteNode("Literal: %s", none, l.Value)
-	v.writeType(l.Type)
+	l.GetType().Accept(v)
 	v.Pop()
 	return nil
 }
@@ -214,7 +221,7 @@ func (v *AstVisualizer) VisitIdentifier(i *ast.Identifier) error {
 	v.WriteNode("Identifier: %s", none, i.Name)
 	v.WriteNode("Resolved: %v", none, i.Resolved != nil)
 	v.Pop()
-	v.writeType(i.Type)
+	i.GetType().Accept(v)
 	v.Pop()
 	return nil
 }
