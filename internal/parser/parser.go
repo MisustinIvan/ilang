@@ -418,14 +418,31 @@ func (p *Parser) ParseBind() (*ast.Bind, error) {
 
 // ParseAssignment parses an assignment expression according to the grammar:
 //
-// assignment           ::= identifier "=" value
+// assignment           ::= identifier | index "=" value
 func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
-	var Identifier *ast.Identifier
-	var Value ast.Value
-
+	var Target ast.Primary
 	Identifier, err := p.ParseIdentifier()
 	if err != nil {
 		return nil, err
+	}
+
+	if p.matchCurrent(lexer.Punctuator, "[") {
+		p.next() // consume bracket
+		Index, err := p.ParseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		Target = &ast.Index{
+			Identifier: Identifier,
+			Index:      Index,
+		}
+
+		if _, err := p.Expect(lexer.Punctuator, "]"); err != nil {
+			return nil, err
+		}
+	} else {
+		Target = Identifier
 	}
 
 	_, err = p.Expect(lexer.Operator, "=")
@@ -433,14 +450,14 @@ func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
 		return nil, err
 	}
 
-	Value, err = p.ParseValue()
+	Value, err := p.ParseValue()
 	if err != nil {
 		return nil, err
 	}
 
 	assignment := &ast.Assignment{
-		Identifier: Identifier,
-		Value:      Value,
+		Target: Target,
+		Value:  Value,
 	}
 	assignment.SetPosition(Identifier.Position)
 
@@ -499,6 +516,7 @@ func (p *Parser) ParseValue() (ast.Value, error) {
 //	                       | separated
 //	                       | block
 //	                       | condition
+//	                       | index
 func (p *Parser) ParsePrimary() (ast.Primary, error) {
 	switch {
 	case p.matchCurrent(lexer.Literal, ""):
@@ -507,6 +525,8 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 		return p.ParseCall()
 	case p.matchCurrent(lexer.Identifier, ""):
 		return p.ParseIdentifier()
+	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Punctuator, "[", 1):
+		return p.ParseIndex()
 	case p.matchCurrent(lexer.Punctuator, "("):
 		return p.ParseSeparated()
 	case p.matchCurrent(lexer.Punctuator, "{"):
@@ -656,6 +676,37 @@ func (p *Parser) ParseCondition() (*ast.Condition, error) {
 	condition.SetPosition(if_tk.Position)
 
 	return condition, nil
+}
+
+// ParseIndex parses an index expression according to the grammar:
+//
+// index                ::= identifier "[" primary "]"
+func (p *Parser) ParseIndex() (*ast.Index, error) {
+	var Identifier *ast.Identifier
+	var Index ast.Primary
+
+	Identifier, err := p.ParseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, "["); err != nil {
+		return nil, err
+	}
+
+	Index, err = p.ParsePrimary()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, "]"); err != nil {
+		return nil, err
+	}
+
+	return &ast.Index{
+		Identifier: Identifier,
+		Index:      Index,
+	}, nil
 }
 
 // ParseUnary parses a unary expression according to the grammar:
