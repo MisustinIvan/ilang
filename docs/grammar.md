@@ -20,10 +20,12 @@ value                ::= primary
 
 return               ::= "return" value
 bind                 ::= "let" identifier ":" type "=" value
-assignment           ::= identifier "=" value
+assignment           ::= identifier | index "=" value
 
 binary               ::= primary binary_operator value
 unary                ::= unary_operator primary
+
+index                ::= identifier "[" primary "]"
 
 primary              ::= literal
                        | identifier
@@ -31,6 +33,7 @@ primary              ::= literal
                        | separated
                        | block
                        | condition
+                       | index
 
 call                 ::= identifier "(" [ value { "," value } ] ")"
 separated            ::= "(" value ")"
