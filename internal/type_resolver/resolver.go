@@ -41,7 +41,7 @@ func (r *Resolver) VisitProgram(p *ast.Program) error {
 func (r *Resolver) VisitDeclaration(d *ast.Declaration) error {
 	var err error
 
-	d.Identifier.SetType(d.Type)
+	d.Identifier.SetType(&d.Type)
 
 	for _, arg := range d.Args {
 		err = errors.Join(arg.Accept(r))
@@ -54,7 +54,7 @@ func (r *Resolver) VisitDeclaration(d *ast.Declaration) error {
 
 func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	var err error
-	d.Identifier.SetType(d.Type)
+	d.Identifier.SetType(&d.Type)
 
 	for _, arg := range d.Args {
 		err = errors.Join(arg.Accept(r))
@@ -64,11 +64,12 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 }
 
 func (r *Resolver) VisitArgument(a *ast.Argument) error {
-	a.Identifier.SetType(a.Type)
+	a.Identifier.SetType(&a.Type)
 	return nil
 }
 
-func (r *Resolver) VisitType(t *ast.Type) error { return nil }
+func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
+func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
 func (r *Resolver) VisitReturn(e *ast.Return) error {
 	var err error
 	err = errors.Join(err, e.Value.Accept(r))
@@ -82,7 +83,7 @@ func (r *Resolver) VisitBind(b *ast.Bind) error {
 	return b.Value.Accept(r)
 }
 
-func literalType(val string) ast.Type {
+func literalType(val string) *ast.BasicType {
 	t := ast.Undefined
 
 	if val == "unit" {
@@ -97,13 +98,13 @@ func literalType(val string) ast.Type {
 		t = ast.Float
 	}
 
-	return t
+	return &t
 }
 
 func (r *Resolver) VisitLiteral(l *ast.Literal) error {
 	t := literalType(l.Value)
 	l.SetType(t)
-	if t == ast.Undefined {
+	if t.Equals(ast.BasicTypePtr(ast.Undefined)) {
 		return fmt.Errorf("literal of undefined type at %v", l.GetPosition())
 	}
 	return nil
@@ -111,7 +112,7 @@ func (r *Resolver) VisitLiteral(l *ast.Literal) error {
 
 func (r *Resolver) VisitIdentifier(i *ast.Identifier) error {
 	if i.Resolved == nil {
-		i.SetType(ast.Undefined)
+		i.SetType(ast.BasicTypePtr(ast.Undefined))
 		return fmt.Errorf("unresolved identifier at %s has undefined type", i.GetPosition())
 	}
 	i.SetType(i.Resolved.Type)
@@ -122,7 +123,7 @@ func (r *Resolver) VisitCall(c *ast.Call) error {
 	var err error
 	err = errors.Join(err, c.Identifier.Accept(r))
 	if c.Identifier.Resolved == nil {
-		c.SetType(ast.Undefined)
+		c.SetType(ast.BasicTypePtr(ast.Undefined))
 		err = errors.Join(err, fmt.Errorf("unresolved function call at %s has undefined type", c.GetPosition()))
 	} else {
 		c.SetType(c.Identifier.Resolved.Type)
@@ -152,7 +153,7 @@ func (r *Resolver) VisitBinary(u *ast.Binary) error {
 	err = errors.Join(err, u.Left.Accept(r))
 	err = errors.Join(err, u.Right.Accept(r))
 	if ast.BoolOperators[u.Operator] {
-		u.SetType(ast.Bool)
+		u.SetType(ast.BasicTypePtr(ast.Bool))
 	} else {
 		u.SetType(u.Left.GetType()) // assume this type and check the right side later
 	}
@@ -170,7 +171,7 @@ func (r *Resolver) VisitBlock(b *ast.Block) error {
 		err = errors.Join(err, b.ImplicitReturn.Accept(r))
 		b.SetType(b.ImplicitReturn.GetType())
 	} else {
-		b.SetType(ast.Unit)
+		b.SetType(ast.BasicTypePtr(ast.Unit))
 	}
 
 	return err
