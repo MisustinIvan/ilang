@@ -25,6 +25,7 @@ type (
 		VisitBinary(u *Binary) error
 		VisitBlock(b *Block) error
 		VisitCondition(c *Condition) error
+		VisitIndex(i *Index) error
 		VisitAssignment(a *Assignment) error
 	}
 
@@ -247,8 +248,8 @@ type (
 	}
 	Assignment struct {
 		ExpressionBase
-		Identifier *Identifier
-		Value      Value
+		Target Primary
+		Value  Value
 	}
 )
 
@@ -313,6 +314,11 @@ type (
 		Body      Value
 		Else      Value
 	}
+	Index struct {
+		PrimaryBase
+		Identifier *Identifier
+		Index      Value
+	}
 )
 
 func (l *Literal) Accept(v Visitor) error    { return v.VisitLiteral(l) }
@@ -321,3 +327,4 @@ func (c *Call) Accept(v Visitor) error       { return v.VisitCall(c) }
 func (s *Separated) Accept(v Visitor) error  { return v.VisitSeparated(s) }
 func (b *Block) Accept(v Visitor) error      { return v.VisitBlock(b) }
 func (c *Condition) Accept(v Visitor) error  { return v.VisitCondition(c) }
+func (c *Index) Accept(v Visitor) error      { return v.VisitIndex(c) }
