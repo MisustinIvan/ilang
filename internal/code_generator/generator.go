@@ -47,7 +47,8 @@ func (f *localFinder) declareLocal(size int, identifier *ast.Identifier) {
 
 func (f *localFinder) VisitProgram(p *ast.Program) error                         { return nil }
 func (f *localFinder) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { return nil }
-func (f *localFinder) VisitType(t *ast.Type) error                               { return nil }
+func (f *localFinder) VisitBasicType(t *ast.BasicType) error                     { return nil }
+func (f *localFinder) VisitArrayType(t *ast.ArrayType) error                     { return nil }
 func (f *localFinder) VisitLiteral(l *ast.Literal) error                         { return nil }
 func (f *localFinder) VisitIdentifier(i *ast.Identifier) error                   { return nil }
 
@@ -164,8 +165,8 @@ func (g *Generator) Generate() (string, error) {
 	g.writeln(".data")
 
 	for id, l := range g.constants {
-		switch l.GetType() {
-		case ast.String:
+		switch {
+		case l.GetType().Equals(ast.BasicTypePtr(ast.String)):
 			g.writeln(id + ":")
 			g.writeln(".asciz " + l.Value)
 		default:
@@ -288,7 +289,8 @@ func (g *Generator) VisitArgument(a *ast.Argument) error {
 	return nil
 }
 
-func (g *Generator) VisitType(t *ast.Type) error { return nil }
+func (g *Generator) VisitBasicType(t *ast.BasicType) error { return nil }
+func (g *Generator) VisitArrayType(t *ast.ArrayType) error { return nil }
 
 // VisitReturn() generates code to move the return value to %rax and then return
 func (g *Generator) VisitReturn(r *ast.Return) error {
@@ -331,7 +333,11 @@ func (g *Generator) constLabel() string {
 // VisitLiteral() generates code of a literal value to be stored in %rax.
 func (g *Generator) VisitLiteral(l *ast.Literal) error {
 	g.writefln("# literal expression of type %s", l.Type.String())
-	switch l.Type {
+	t, basicType := l.GetType().(*ast.BasicType)
+	if !basicType {
+		return generatorError(l.Position, "literals of non-basic type are not supported yet")
+	}
+	switch *t {
 	case ast.Int:
 		g.writefln("mov $%s, %%rax", l.Value)
 	case ast.Bool:
