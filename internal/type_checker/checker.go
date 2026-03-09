@@ -79,6 +79,15 @@ func (c *Checker) VisitReturn(e *ast.Return) error                           { r
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
 
+	// array zero-intialization
+	if _, isArray := b.Type.(*ast.ArrayType); isArray {
+		if literal, isLiteral := b.Value.(*ast.Literal); isLiteral {
+			if literal.Value == "0" {
+				return nil
+			}
+		}
+	}
+
 	if !b.Type.Equals(b.Value.GetType()) {
 		err = errors.Join(err, typeError(b.Position, "bound value type: %v does not match expected type: %v", b.Value.GetType(), b.Type))
 	}
