@@ -193,9 +193,24 @@ func (r *Resolver) VisitCondition(c *ast.Condition) error {
 func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
 	var err error
 
-	err = errors.Join(err, a.Identifier.Accept(r))
+	err = errors.Join(err, a.Target.Accept(r))
 	err = errors.Join(err, a.Value.Accept(r))
-	a.SetType(a.Identifier.Type)
+	a.SetType(a.Target.GetType())
+
+	return err
+}
+
+func (r *Resolver) VisitIndex(i *ast.Index) error {
+	var err error
+
+	err = errors.Join(err, i.Identifier.Accept(r))
+	err = errors.Join(err, i.Index.Accept(r))
+
+	if t, isArray := i.Identifier.Resolved.GetType().(*ast.ArrayType); isArray {
+		i.SetType(&t.Element)
+	} else {
+		return fmt.Errorf("indexing identifier of non-array type")
+	}
 
 	return err
 }
