@@ -2,6 +2,8 @@
 package ast
 
 import (
+	"fmt"
+
 	"github.com/MisustinIvan/ilang/internal/lexer"
 )
 
@@ -11,7 +13,8 @@ type (
 		VisitDeclaration(d *Declaration) error
 		VisitExternalDeclaration(d *ExternalDeclaration) error
 		VisitArgument(a *Argument) error
-		VisitType(t *Type) error
+		VisitBasicType(t *BasicType) error
+		VisitArrayType(t *ArrayType) error
 		VisitReturn(r *Return) error
 		VisitBind(b *Bind) error
 		VisitLiteral(l *Literal) error
@@ -35,21 +38,21 @@ type (
 	}
 
 	Declaration struct {
-		Type       Type
+		Type       BasicType
 		Identifier *Identifier
 		Args       []Argument
 		Body       Block
 	}
 
 	ExternalDeclaration struct {
-		Type       Type
+		Type       BasicType
 		Identifier *Identifier
 		Args       []Argument
 		Variadic   bool
 	}
 
 	Argument struct {
-		Type       Type
+		Type       BasicType
 		Identifier *Identifier
 	}
 )
@@ -57,36 +60,69 @@ type (
 func (p *Program) Accept(v Visitor) error             { return v.VisitProgram(p) }
 func (d *Declaration) Accept(v Visitor) error         { return v.VisitDeclaration(d) }
 func (d *ExternalDeclaration) Accept(v Visitor) error { return v.VisitExternalDeclaration(d) }
-func (a *Argument) Accept(v Visitor) error           { return v.VisitArgument(a) }
+func (a *Argument) Accept(v Visitor) error            { return v.VisitArgument(a) }
 
-// types
-//
-//go:generate stringer -type=Type
-type Type int
-
-const (
-	Undefined Type = iota
-	Int
-	Bool
-	Float
-	String
-	Unit
-)
-
-func (t *Type) Accept(v Visitor) error {
-	return v.VisitType(t)
+type Type interface {
+	String() string
+	Size() int
+	Accept(v Visitor) error
+	Equals(o Type) bool
 }
 
-// Size() returns the size in bytes.
-func (t *Type) Size() int {
-	switch *t {
-	case Undefined, Unit:
-		return 0
-	case Int, Bool, Float, String:
+//go:generate stringer -type=BasicType
+type BasicType int
+
+const (
+	Int BasicType = iota
+	Float
+	Bool
+	String
+	Unit
+	Undefined
+)
+
+func (b *BasicType) Size() int {
+	switch *b {
+	case Int, Float, Bool, String:
 		return 8
+	case Unit, Undefined:
+		fallthrough
 	default:
 		return 0
 	}
+}
+
+func (b *BasicType) Accept(v Visitor) error {
+	return v.VisitBasicType(b)
+}
+
+func (b *BasicType) Equals(o Type) bool {
+	val, ok := o.(*BasicType)
+	return ok && *val == *b
+}
+
+type ArrayType struct {
+	Element Type
+	Length  int
+}
+
+func (t *ArrayType) Size() int {
+	return t.Element.Size() * t.Length
+}
+
+func (t *ArrayType) String() string {
+	return fmt.Sprintf("[%d]%s", t.Length, t.Element.String())
+}
+
+func (t *ArrayType) Accept(v Visitor) error {
+	return v.VisitArrayType(t)
+}
+
+func (t *ArrayType) Equals(o Type) bool {
+	if val, ok := o.(*ArrayType); ok {
+		return t.Size() == val.Size() && t.Element.Equals(val.Element)
+	}
+	return false
 }
 
 // operators
@@ -128,7 +164,7 @@ var BinaryOperatorTokens = map[string]BinaryOperator{
 	"||": LogicOr,
 }
 
-var BinaryOperatorApplies = map[BinaryOperator]map[Type]bool{
+var BinaryOperatorApplies = map[BinaryOperator]map[BasicType]bool{
 	Addition:       {Int: true, Float: true},
 	Subtraction:    {Int: true, Float: true},
 	Multiplication: {Int: true, Float: true},
@@ -167,7 +203,7 @@ var UnaryOperatorTokens = map[string]UnaryOperator{
 	"!": LogicNegation,
 }
 
-var UnaryOperatorApplies = map[UnaryOperator]map[Type]bool{
+var UnaryOperatorApplies = map[UnaryOperator]map[BasicType]bool{
 	Inversion:     {Int: true, Float: true},
 	LogicNegation: {Bool: true},
 }
