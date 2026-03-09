@@ -136,6 +136,10 @@ func findLocals(d *ast.Declaration) (map[*ast.Identifier]int, int) {
 // offsets for the local variables and also the total stack offset of the function.
 func (g *Generator) newContext(d *ast.Declaration) {
 	locals, stackOffset := findLocals(d)
+	// align the stack to 16 bytes
+	if stackOffset%16 != 0 {
+		stackOffset += 16 - (stackOffset % 16)
+	}
 	g.ctx = &functionContext{
 		currentDecl: d,
 		locals:      locals,
