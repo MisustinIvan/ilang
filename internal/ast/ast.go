@@ -102,7 +102,7 @@ func (b *BasicType) Equals(o Type) bool {
 }
 
 type ArrayType struct {
-	Element Type
+	Element BasicType
 	Length  int
 }
 
@@ -120,7 +120,7 @@ func (t *ArrayType) Accept(v Visitor) error {
 
 func (t *ArrayType) Equals(o Type) bool {
 	if val, ok := o.(*ArrayType); ok {
-		return t.Size() == val.Size() && t.Element.Equals(val.Element)
+		return t.Size() == val.Size() && t.Element == val.Element
 	}
 	return false
 }
