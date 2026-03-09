@@ -15,10 +15,10 @@ func generatorError(position lexer.Position, msg string, args ...any) error {
 }
 
 type functionContext struct {
-	currentDecl     *ast.Declaration        // current function declaration ast node
-	locals          map[*ast.Identifier]int // maps a local identifier to a stack offset
-	stackOffset     int                     // total stack offset of the function to allocate memory on the stack
-	paramsGenerated int                     // how many function parameters had their code generated
+	currentDecl   *ast.Declaration        // current function declaration ast node
+	locals        map[*ast.Identifier]int // maps a local identifier to a stack offset
+	stackOffset   int                     // total stack offset of the function to allocate memory on the stack
+	argsGenerated int                     // how many function arguments had their code generated
 }
 
 type Generator struct {
@@ -52,15 +52,15 @@ func (f *localFinder) VisitLiteral(l *ast.Literal) error                        
 func (f *localFinder) VisitIdentifier(i *ast.Identifier) error                   { return nil }
 
 func (f *localFinder) VisitDeclaration(d *ast.Declaration) error {
-	for _, arg := range d.Params {
+	for _, arg := range d.Args {
 		arg.Accept(f)
 	}
 	d.Body.Accept(f)
 	return nil
 }
 
-func (f *localFinder) VisitParameter(p *ast.Parameter) error {
-	f.declareLocal(p.Type.Size(), p.Identifier)
+func (f *localFinder) VisitArgument(a *ast.Argument) error {
+	f.declareLocal(a.Type.Size(), a.Identifier)
 	return nil
 }
 
@@ -238,7 +238,7 @@ func (g *Generator) VisitDeclaration(d *ast.Declaration) error {
 	g.newContext(d)
 	g.generatePrologue()
 
-	for _, arg := range d.Params {
+	for _, arg := range d.Args {
 		err = errors.Join(err, arg.Accept(g))
 	}
 	g.writeln("")
@@ -249,10 +249,10 @@ func (g *Generator) VisitDeclaration(d *ast.Declaration) error {
 	return err
 }
 
-// paramLocation() returns the location of the nth function parameter using the
-// x86_64 linux c calling conventions. In case of more than 6 parameters it
+// argLocation() returns the location of the nth function argument using the
+// x86_64 linux c calling conventions. In case of more than 6 arguments it
 // returns an error for now.
-func (g *Generator) paramLocation(n int) (string, error) {
+func (g *Generator) argLocation(n int) (string, error) {
 	switch n {
 	case 0:
 		return "%rdi", nil
@@ -267,23 +267,23 @@ func (g *Generator) paramLocation(n int) (string, error) {
 	case 5:
 		return "%r9", nil
 	default:
-		return "", generatorError(g.ctx.currentDecl.Identifier.Position, "can't use more than 6 parameters for now")
+		return "", generatorError(g.ctx.currentDecl.Identifier.Position, "can't use more than 6 arguments for now")
 	}
 }
 
-// VisitParameter() generates code to move the function parameter from its
+// VisitArgument() generates code to move the function argument from its
 // location in a register according to the linux x86_64 calling conventions to
 // a local variable in the function scope. It currently supports only up to
-// 6 parameters.
-func (g *Generator) VisitParameter(p *ast.Parameter) error {
-	location, err := g.paramLocation(g.ctx.paramsGenerated)
-	g.ctx.paramsGenerated++
+// 6 arguments.
+func (g *Generator) VisitArgument(a *ast.Argument) error {
+	location, err := g.argLocation(g.ctx.argsGenerated)
+	g.ctx.argsGenerated++
 	if err != nil {
 		return err
 	}
 
-	offset := g.ctx.locals[p.Identifier]
-	g.writeln("# move function parameter to local")
+	offset := g.ctx.locals[a.Identifier]
+	g.writeln("# move function argument to local")
 	g.writefln("mov %s, -%d(%%rbp)", location, offset)
 	return nil
 }
@@ -396,7 +396,7 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 	g.writeln("xor %rax, %rax")
 
 	for i := range slices.Backward(c.Arguments) {
-		reg, _ := g.paramLocation(i)
+		reg, _ := g.argLocation(i)
 		g.writefln("pop %s # pop argument %d", reg, i)
 	}
 

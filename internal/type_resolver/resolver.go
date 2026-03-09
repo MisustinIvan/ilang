@@ -43,8 +43,8 @@ func (r *Resolver) VisitDeclaration(d *ast.Declaration) error {
 
 	d.Identifier.SetType(d.Type)
 
-	for _, param := range d.Params {
-		err = errors.Join(param.Accept(r))
+	for _, arg := range d.Args {
+		err = errors.Join(arg.Accept(r))
 	}
 
 	err = errors.Join(err, d.Body.Accept(r))
@@ -56,15 +56,15 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	var err error
 	d.Identifier.SetType(d.Type)
 
-	for _, param := range d.Params {
-		err = errors.Join(param.Accept(r))
+	for _, arg := range d.Args {
+		err = errors.Join(arg.Accept(r))
 	}
 
 	return err
 }
 
-func (r *Resolver) VisitParameter(p *ast.Parameter) error {
-	p.Identifier.SetType(p.Type)
+func (r *Resolver) VisitArgument(a *ast.Argument) error {
+	a.Identifier.SetType(a.Type)
 	return nil
 }
 

@@ -125,11 +125,11 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error
 // ParseExternalDeclaration parses an external function declaration according
 // to the grammar:
 //
-// external_declaration ::= "extrn" type identifier "(" [ function_parameter { "," function_parameter } ["," "..."] ] | "..." ")"
+// external_declaration ::= "extrn" type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
 func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	var Type *ast.Type
 	var Identifier *ast.Identifier
-	var Parameters []ast.Parameter
+	var Arguments []ast.Argument
 	var Variadic = false
 
 	// expect "extrn" keyword
@@ -156,9 +156,9 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 		return nil, err
 	}
 
-	// parse parameters
+	// parse arguments
 	if p.matchCurrent(lexer.Punctuator, ")") {
-		// No parameters
+		// No arguments
 	} else if p.matchCurrent(lexer.Punctuator, "...") {
 		Variadic = true
 		_, err = p.Expect(lexer.Punctuator, "...")
@@ -166,11 +166,11 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 			return nil, err
 		}
 	} else {
-		parameter, err := p.ParseFunctionParameter()
+		argument, err := p.ParseFunctionArgument()
 		if err != nil {
 			return nil, err
 		}
-		Parameters = append(Parameters, *parameter)
+		Arguments = append(Arguments, *argument)
 
 		for p.matchCurrent(lexer.Punctuator, ",") {
 			_, err = p.Expect(lexer.Punctuator, ",")
@@ -187,11 +187,11 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 				break
 			}
 
-			parameter, err := p.ParseFunctionParameter()
+			argument, err := p.ParseFunctionArgument()
 			if err != nil {
 				return nil, err
 			}
-			Parameters = append(Parameters, *parameter)
+			Arguments = append(Arguments, *argument)
 		}
 	}
 
@@ -204,7 +204,7 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	decl := &ast.ExternalDeclaration{
 		Type:       *Type,
 		Identifier: Identifier,
-		Params:     Parameters,
+		Args:       Arguments,
 		Variadic:   Variadic,
 	}
 
@@ -213,11 +213,11 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 
 // ParseDeclaration parses a function declaration according to the grammar:
 //
-// declaration          ::= type identifier "(" [ function_parameter { "," function_parameter } ] ")" block
+// declaration          ::= type identifier "(" [ function_argument { "," function_argument } ] ")" block
 func (p *Parser) ParseDeclaration() (*ast.Declaration, error) {
 	var Type *ast.Type
 	var Identifier *ast.Identifier
-	var Parameters []ast.Parameter
+	var Arguments []ast.Argument
 	var Body *ast.Block
 
 	// parse type
@@ -238,26 +238,26 @@ func (p *Parser) ParseDeclaration() (*ast.Declaration, error) {
 		return nil, err
 	}
 
-	// parse parameters
+	// parse arguments
 	if p.matchCurrent(lexer.Punctuator, ")") {
-		// No parameters
+		// No arguments
 	} else {
-		parameter, err := p.ParseFunctionParameter()
+		argument, err := p.ParseFunctionArgument()
 		if err != nil {
 			return nil, err
 		}
-		Parameters = append(Parameters, *parameter)
+		Arguments = append(Arguments, *argument)
 
 		for p.matchCurrent(lexer.Punctuator, ",") {
 			_, err = p.Expect(lexer.Punctuator, ",")
 			if err != nil {
 				return nil, err
 			}
-			parameter, err := p.ParseFunctionParameter()
+			argument, err := p.ParseFunctionArgument()
 			if err != nil {
 				return nil, err
 			}
-			Parameters = append(Parameters, *parameter)
+			Arguments = append(Arguments, *argument)
 		}
 	}
 
@@ -276,7 +276,7 @@ func (p *Parser) ParseDeclaration() (*ast.Declaration, error) {
 	return &ast.Declaration{
 		Type:       *Type,
 		Identifier: Identifier,
-		Params:     Parameters,
+		Args:       Arguments,
 		Body:       *Body,
 	}, nil
 }
@@ -688,10 +688,10 @@ func (p *Parser) ParseUnary() (*ast.Unary, error) {
 	return unary, nil
 }
 
-// ParseFunctionParameter parses a function parameter according to the grammar:
+// ParseFunctionArgument parses a function argument according to the grammar:
 //
-// function_parameter   ::= type identifier
-func (p *Parser) ParseFunctionParameter() (*ast.Parameter, error) {
+// function_argument   ::= type identifier
+func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
 	var Type *ast.Type
 	var Identifier *ast.Identifier
 
@@ -705,7 +705,7 @@ func (p *Parser) ParseFunctionParameter() (*ast.Parameter, error) {
 		return nil, err
 	}
 
-	return &ast.Parameter{
+	return &ast.Argument{
 		Type:       *Type,
 		Identifier: Identifier,
 	}, nil

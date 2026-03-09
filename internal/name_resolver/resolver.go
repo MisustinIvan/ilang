@@ -90,8 +90,8 @@ func (r *Resolver) VisitDeclaration(d *ast.Declaration) error {
 	err := r.Declare(d.Identifier) // declare in global scope
 	r.PushScope()                  // function scope
 
-	for _, param := range d.Params {
-		err = errors.Join(param.Accept(r))
+	for _, arg := range d.Args {
+		err = errors.Join(arg.Accept(r))
 	}
 
 	err = errors.Join(d.Body.Accept(r))
@@ -104,16 +104,16 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	err = errors.Join(r.Declare(d.Identifier))
 	r.PushScope() // function scope
 
-	for _, param := range d.Params {
-		err = errors.Join(param.Accept(r))
+	for _, arg := range d.Args {
+		err = errors.Join(arg.Accept(r))
 	}
 
 	r.PopScope() // function scope
 	return err
 }
 
-func (r *Resolver) VisitParameter(p *ast.Parameter) error {
-	return r.Declare(p.Identifier)
+func (r *Resolver) VisitArgument(a *ast.Argument) error {
+	return r.Declare(a.Identifier)
 }
 
 func (r *Resolver) VisitReturn(e *ast.Return) error {

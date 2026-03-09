@@ -109,9 +109,9 @@ func (v *AstVisualizer) VisitDeclaration(d *ast.Declaration) error {
 		return err
 	}
 
-	v.WriteNode("Parameters", none)
-	for _, param := range d.Params {
-		if err := param.Accept(v); err != nil {
+	v.WriteNode("Arguments", none)
+	for _, arg := range d.Args {
+		if err := arg.Accept(v); err != nil {
 			return err
 		}
 	}
@@ -135,9 +135,9 @@ func (v *AstVisualizer) VisitExternalDeclaration(d *ast.ExternalDeclaration) err
 		v.Pop()
 	}
 
-	v.WriteNode("Parameters", none)
-	for _, param := range d.Params {
-		if err := param.Accept(v); err != nil {
+	v.WriteNode("Arguments", none)
+	for _, arg := range d.Args {
+		if err := arg.Accept(v); err != nil {
 			return err
 		}
 	}
@@ -146,13 +146,13 @@ func (v *AstVisualizer) VisitExternalDeclaration(d *ast.ExternalDeclaration) err
 	return nil
 }
 
-func (v *AstVisualizer) VisitParameter(p *ast.Parameter) error {
-	v.WriteNode("Parameter", none)
+func (v *AstVisualizer) VisitArgument(a *ast.Argument) error {
+	v.WriteNode("Argument", none)
 	defer v.Pop()
-	if err := p.Type.Accept(v); err != nil {
+	if err := a.Type.Accept(v); err != nil {
 		return err
 	}
-	return p.Identifier.Accept(v)
+	return a.Identifier.Accept(v)
 }
 
 func (v *AstVisualizer) writeType(t ast.Type) {

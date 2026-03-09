@@ -13,7 +13,7 @@ func typeError(position lexer.Position, format string, args ...any) error {
 }
 
 type Function struct {
-	Params   []ast.Parameter
+	Args     []ast.Argument
 	Variadic bool
 }
 
@@ -30,14 +30,14 @@ func NewChecker(prog *ast.Program) *Checker {
 
 	for _, decl := range prog.Declarations {
 		c.declarations[decl.Identifier] = Function{
-			Params:   decl.Params,
+			Args:     decl.Args,
 			Variadic: false,
 		}
 	}
 
 	for _, decl := range prog.ExternalDeclarations {
 		c.declarations[decl.Identifier] = Function{
-			Params:   decl.Params,
+			Args:     decl.Args,
 			Variadic: decl.Variadic,
 		}
 	}
@@ -72,7 +72,7 @@ func (c *Checker) VisitDeclaration(d *ast.Declaration) error {
 }
 
 func (c *Checker) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { return nil } // here everything should be fine
-func (c *Checker) VisitParameter(p *ast.Parameter) error                     { return nil }
+func (c *Checker) VisitArgument(a *ast.Argument) error                       { return nil }
 func (c *Checker) VisitType(t *ast.Type) error                               { return nil }
 func (c *Checker) VisitReturn(e *ast.Return) error                           { return e.Value.Accept(c) }
 func (c *Checker) VisitBind(b *ast.Bind) error {
@@ -96,11 +96,11 @@ func (c *Checker) VisitCall(cl *ast.Call) error {
 		return typeError(cl.Position, "calling unresolved function %s", cl.Identifier.Name)
 	}
 
-	declared_args := function.Params
+	declared_args := function.Args
 	is_variadic := function.Variadic
 
-	param_len := max(len(cl.Arguments), len(declared_args))
-	for i := range param_len {
+	arg_len := max(len(cl.Arguments), len(declared_args))
+	for i := range arg_len {
 		if i < len(cl.Arguments) {
 			err = errors.Join(err, cl.Arguments[i].Accept(c))
 		}
@@ -119,7 +119,7 @@ func (c *Checker) VisitCall(cl *ast.Call) error {
 		got := cl.Arguments[i].GetType()
 
 		if expected != got {
-			err = errors.Join(err, typeError(cl.Position, "parameter types dont match - %v vs %v - at index %d", expected, got, i))
+			err = errors.Join(err, typeError(cl.Position, "argument types dont match - %v vs %v - at index %d", expected, got, i))
 		}
 	}
 

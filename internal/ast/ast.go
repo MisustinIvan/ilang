@@ -10,7 +10,7 @@ type (
 		VisitProgram(p *Program) error
 		VisitDeclaration(d *Declaration) error
 		VisitExternalDeclaration(d *ExternalDeclaration) error
-		VisitParameter(p *Parameter) error
+		VisitArgument(a *Argument) error
 		VisitType(t *Type) error
 		VisitReturn(r *Return) error
 		VisitBind(b *Bind) error
@@ -37,18 +37,18 @@ type (
 	Declaration struct {
 		Type       Type
 		Identifier *Identifier
-		Params     []Parameter
+		Args       []Argument
 		Body       Block
 	}
 
 	ExternalDeclaration struct {
 		Type       Type
 		Identifier *Identifier
-		Params     []Parameter
+		Args       []Argument
 		Variadic   bool
 	}
 
-	Parameter struct {
+	Argument struct {
 		Type       Type
 		Identifier *Identifier
 	}
@@ -57,7 +57,7 @@ type (
 func (p *Program) Accept(v Visitor) error             { return v.VisitProgram(p) }
 func (d *Declaration) Accept(v Visitor) error         { return v.VisitDeclaration(d) }
 func (d *ExternalDeclaration) Accept(v Visitor) error { return v.VisitExternalDeclaration(d) }
-func (p *Parameter) Accept(v Visitor) error           { return v.VisitParameter(p) }
+func (a *Argument) Accept(v Visitor) error           { return v.VisitArgument(a) }
 
 // types
 //
