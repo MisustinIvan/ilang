@@ -188,5 +188,6 @@ func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
 	return errors.Join(a.Identifier.Accept(r), a.Value.Accept(r))
 }
 
-func (r *Resolver) VisitType(t *ast.Type) error       { return nil }
-func (r *Resolver) VisitLiteral(l *ast.Literal) error { return nil }
+func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
+func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
+func (r *Resolver) VisitLiteral(l *ast.Literal) error     { return nil }
