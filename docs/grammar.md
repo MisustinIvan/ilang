@@ -3,9 +3,9 @@
 ```ebnf
 program              ::= { declaration | external_declaration }
 
-declaration          ::= type identifier "(" [ function_argument { "," function_argument } ] ")" block
-external_declaration ::= "extrn" type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
-function_argument    ::= type identifier
+declaration          ::= basic_type identifier "(" [ function_argument { "," function_argument } ] ")" block
+external_declaration ::= "extrn" basic_type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
+function_argument    ::= basic_type identifier
 
 block                ::= "{" { expression ";" } [ expression ] "}"
 
@@ -40,7 +40,9 @@ condition            ::= "if" value value
 
 literal              ::= "*."
 identifier           ::= "*."
-type                 ::= "int" | "bool" | "float" | "string" | "unit"
+type                 ::= basic_type | array_type
+array_type           ::= "[" value "]" basic_type
+basic_type           ::= "int" | "bool" | "float" | "string" | "unit"
 binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
 unary_operator       ::= "-" | "!"
 ```
