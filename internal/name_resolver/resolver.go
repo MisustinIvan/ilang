@@ -185,7 +185,11 @@ func (r *Resolver) VisitCondition(c *ast.Condition) error {
 }
 
 func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
-	return errors.Join(a.Identifier.Accept(r), a.Value.Accept(r))
+	return errors.Join(a.Target.Accept(r), a.Value.Accept(r))
+}
+
+func (r *Resolver) VisitIndex(i *ast.Index) error {
+	return errors.Join(i.Identifier.Accept(r), i.Index.Accept(r))
 }
 
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
