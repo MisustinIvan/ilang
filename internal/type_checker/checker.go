@@ -79,6 +79,10 @@ func (c *Checker) VisitReturn(e *ast.Return) error                           { r
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
 
+	if b.GetType().Size() == 0 {
+		err = errors.Join(err, typeError(b.Position, "bound value must have non-zero size"))
+	}
+
 	// array zero-intialization
 	if _, isArray := b.Type.(*ast.ArrayType); isArray {
 		if literal, isLiteral := b.Value.(*ast.Literal); isLiteral {
