@@ -121,6 +121,11 @@ func (f *localFinder) VisitAssignment(a *ast.Assignment) error {
 	return nil
 }
 
+func (f *localFinder) VisitIndex(i *ast.Index) error {
+	i.Index.Accept(f)
+	return nil
+}
+
 func findLocals(d *ast.Declaration) (map[*ast.Identifier]int, int) {
 	l := &localFinder{
 		stackOffset: 0,
@@ -606,14 +611,66 @@ func (g *Generator) VisitCondition(c *ast.Condition) error {
 	return nil
 }
 
+// VisitAssignment() generates code for assigning a value to a target.
+// It distinguishes between two types of assignment - to a scalar variable
+// and to an array.
 func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 	g.writeln("# assignment expression")
 	if err := a.Value.Accept(g); err != nil {
 		return err
 	}
 
-	offset := g.ctx.locals[a.Identifier.Resolved]
-	g.writefln("mov %%rax, -%d(%%rbp)", offset)
+	switch target := a.Target.(type) {
+	case *ast.Identifier:
+		offset, exists := g.ctx.locals[target.Resolved]
+		if !exists {
+			return generatorError(target.Position, "unresolved identifier - \"%s\"", target.Name)
+		}
+		g.writefln("mov %%rax, -%d(%%rbp)", offset)
+	case *ast.Index:
+		g.writeln("push %rax") // save value
 
+		if err := target.Index.Accept(g); err != nil {
+			return err
+		}
+		g.writeln("push %rax") // save index
+
+		offset, exists := g.ctx.locals[target.Identifier.Resolved]
+		if !exists {
+			return generatorError(target.Identifier.Position, "unresolved identifier - \"%s\"", target.Identifier.Name)
+		}
+		g.writefln("lea -%d(%%rbp), %%rcx", offset)
+
+		elementSize := target.GetType().Size()
+		g.writeln("pop %rdx") // index
+		g.writeln("pop %rax") // value
+		g.writefln("mov %%rax, (%%rcx, %%rdx, %d)", elementSize)
+	default:
+		return generatorError(a.Position, "invalid assignment target")
+	}
+
+	return nil
+}
+
+// VisitIndex() generates code for indexing an array as a value.
+// It generates the value for the index, storing the result in %rax
+// and using that as an offset for loading a value from the array base
+// offset to %rax.
+func (g *Generator) VisitIndex(i *ast.Index) error {
+	g.writeln("# index expression")
+	if err := i.Index.Accept(g); err != nil {
+		return err
+	}
+	g.writeln("push %rax")
+
+	offset, exists := g.ctx.locals[i.Identifier.Resolved]
+	if !exists {
+		return generatorError(i.Identifier.Position, "unresolved identifier - \"%s\"", i.Identifier.Name)
+	}
+	g.writefln("lea -%d(%%rbp), %%rcx", offset)
+
+	elementSize := i.GetType().Size()
+	g.writeln("pop %rdx")
+	g.writefln("mov (%%rcx, %%rdx, %d), %%rax", elementSize)
 	return nil
 }
