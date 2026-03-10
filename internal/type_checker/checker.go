@@ -206,14 +206,25 @@ func (c *Checker) VisitCondition(cd *ast.Condition) error {
 
 	return err
 }
+
 func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 	var err error
 
+	err = errors.Join(err, a.Target.Accept(c))
 	err = errors.Join(err, a.Value.Accept(c))
-	if a.Identifier.Resolved != nil {
-		if !a.Value.GetType().Equals(a.Identifier.Resolved.GetType()) {
-			err = errors.Join(err, typeError(a.GetPosition(), "assigning value of type %v to variable of type %v", a.Value.GetType(), a.Identifier.Resolved.GetType()))
-		}
+	if !a.Value.GetType().Equals(a.Target.GetType()) {
+		err = errors.Join(err, typeError(a.GetPosition(), "assigning value of type %v to target of type %v", a.Value.GetType(), a.Target.GetType()))
+	}
+
+	return err
+}
+
+func (c *Checker) VisitIndex(a *ast.Index) error {
+	var err error
+
+	err = errors.Join(err, a.Index.Accept(c))
+	if !a.Index.GetType().Equals(ast.BasicTypePtr(ast.Int)) {
+		err = errors.Join(err, typeError(a.Index.GetPosition(), "can't index array with non-integer value"))
 	}
 
 	return err
