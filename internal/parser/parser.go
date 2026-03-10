@@ -546,7 +546,6 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 	}
 }
 
-
 // ParseLiteral parses a literal according to the grammar:
 //
 // literal              ::= "*."
@@ -712,10 +711,14 @@ func (p *Parser) ParseIndex() (*ast.Index, error) {
 		return nil, err
 	}
 
-	return &ast.Index{
+	idx := ast.Index{
 		Identifier: Identifier,
 		Index:      Index,
-	}, nil
+	}
+
+	idx.SetPosition(Identifier.Position)
+
+	return &idx, nil
 }
 
 // ParseUnary parses a unary expression according to the grammar:
