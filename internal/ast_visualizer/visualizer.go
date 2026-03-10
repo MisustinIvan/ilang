@@ -318,8 +318,17 @@ func (v *AstVisualizer) VisitAssignment(a *ast.Assignment) error {
 	v.WriteNode("Assignment", none)
 	defer v.Pop()
 
-	if err := a.Identifier.Accept(v); err != nil {
+	if err := a.Target.Accept(v); err != nil {
 		return err
 	}
 	return a.Value.Accept(v)
+}
+
+func (v *AstVisualizer) VisitIndex(i *ast.Index) error {
+	v.WriteNode("Index", none)
+	if err := i.Type.Accept(v); err != nil {
+		return err
+	}
+	defer v.Pop()
+	return i.Index.Accept(v)
 }
