@@ -339,6 +339,23 @@ func (p *Parser) ParseExpression() (ast.Expression, error) {
 		return p.ParseBind()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Operator, "=", 1):
 		return p.ParseAssignment()
+	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Operator, "[", 1):
+		idx, err := p.ParseIndex()
+		if err != nil {
+			return nil, err
+		}
+		if p.matchCurrent(lexer.Operator, "=") {
+			val, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			return &ast.Assignment{
+				Target: idx,
+				Value:  val,
+			}, nil
+		} else {
+			return idx, nil
+		}
 	default:
 		return p.ParseValue()
 	}
@@ -417,32 +434,13 @@ func (p *Parser) ParseBind() (*ast.Bind, error) {
 }
 
 // ParseAssignment parses an assignment expression according to the grammar:
+// (without the index, just the identifier)
 //
 // assignment           ::= identifier | index "=" value
 func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
-	var Target ast.Primary
 	Identifier, err := p.ParseIdentifier()
 	if err != nil {
 		return nil, err
-	}
-
-	if p.matchCurrent(lexer.Punctuator, "[") {
-		p.next() // consume bracket
-		Index, err := p.ParseValue()
-		if err != nil {
-			return nil, err
-		}
-
-		Target = &ast.Index{
-			Identifier: Identifier,
-			Index:      Index,
-		}
-
-		if _, err := p.Expect(lexer.Punctuator, "]"); err != nil {
-			return nil, err
-		}
-	} else {
-		Target = Identifier
 	}
 
 	_, err = p.Expect(lexer.Operator, "=")
@@ -456,7 +454,7 @@ func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
 	}
 
 	assignment := &ast.Assignment{
-		Target: Target,
+		Target: Identifier,
 		Value:  Value,
 	}
 	assignment.SetPosition(Identifier.Position)
