@@ -337,6 +337,82 @@ func TestParseAssignment(t *testing.T) {
 	}
 }
 
+func TestParseArrayIndex(t *testing.T) {
+	input := "int main() { a[0] + 1 }"
+	l := lexer.New(lexer.NewSourceFile("test", input))
+	tokens, err := l.Lex()
+	if err != nil {
+		t.Fatalf("Lexing failed: %v", err)
+	}
+
+	p := New(tokens)
+	program, err := p.Parse()
+	if err != nil {
+		tFatalf(t, "Parsing failed: %v", err)
+	}
+
+	decl := program.Declarations[0]
+	binary, ok := decl.Body.ImplicitReturn.(*ast.Binary)
+	if !ok {
+		t.Fatalf("Expected Binary expression, got %T", decl.Body.ImplicitReturn)
+	}
+
+	index, ok := binary.Left.(*ast.Index)
+	if !ok {
+		t.Fatalf("Expected Index expression, got %T", binary.Left)
+	}
+
+	if index.Identifier.Name != "a" {
+		t.Fatalf("Expected identifier 'a', got '%s'", index.Identifier.Name)
+	}
+
+	idxLiteral, ok := index.Index.(*ast.Literal)
+	if !ok {
+		t.Fatalf("Expected Literal for index, got %T", index.Index)
+	}
+	if idxLiteral.Value != "0" {
+		t.Fatalf("Expected index to be '0', got '%s'", idxLiteral.Value)
+	}
+}
+
+func TestParseArrayAssignment(t *testing.T) {
+	input := "int main() { a[2] = 1; }"
+	l := lexer.New(lexer.NewSourceFile("test", input))
+	tokens, err := l.Lex()
+	if err != nil {
+		t.Fatalf("Lexing failed: %v", err)
+	}
+
+	p := New(tokens)
+	program, err := p.Parse()
+	if err != nil {
+		tFatalf(t, "Parsing failed: %v", err)
+	}
+
+	decl := program.Declarations[0]
+	assign, ok := decl.Body.Body[0].(*ast.Assignment)
+	if !ok {
+		t.Fatalf("Expected Assignment expression, got %T", decl.Body.Body[0])
+	}
+
+	index, ok := assign.Target.(*ast.Index)
+	if !ok {
+		t.Fatalf("Expected Index expression as assignment target, got %T", assign.Target)
+	}
+
+	if index.Identifier.Name != "a" {
+		t.Fatalf("Expected identifier 'a', got '%s'", index.Identifier.Name)
+	}
+
+	val, ok := assign.Value.(*ast.Literal)
+	if !ok {
+		t.Fatalf("Expected Literal for assignment value, got %T", assign.Value)
+	}
+	if val.Value != "1" {
+		t.Fatalf("Expected assignment value to be '1', got '%s'", val.Value)
+	}
+}
+
 func TestParseExamples(t *testing.T) {
 	Examples := []string{
 		`
@@ -381,6 +457,16 @@ func TestParseExamples(t *testing.T) {
 		extrn unit printf(...)
 		int main() {
 			printf("Hello, %d", 10);
+		}
+		`,
+		`
+		extrn unit printf(string format, ...)
+
+		int main() {
+			let x: [3]int = 0;
+			x[2] = 1;
+			printf("hello, world!\n");
+			0
 		}
 		`,
 	}
