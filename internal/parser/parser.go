@@ -339,22 +339,28 @@ func (p *Parser) ParseExpression() (ast.Expression, error) {
 		return p.ParseBind()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Operator, "=", 1):
 		return p.ParseAssignment()
-	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Operator, "[", 1):
+	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Punctuator, "[", 1):
 		idx, err := p.ParseIndex()
 		if err != nil {
 			return nil, err
 		}
 		if p.matchCurrent(lexer.Operator, "=") {
+			_, err := p.Expect(lexer.Operator, "=")
+			if err != nil {
+				return nil, err
+			}
 			val, err := p.ParseValue()
 			if err != nil {
 				return nil, err
 			}
-			return &ast.Assignment{
+			assignment := &ast.Assignment{
 				Target: idx,
 				Value:  val,
-			}, nil
+			}
+			assignment.SetPosition(idx.GetPosition())
+			return assignment, nil
 		} else {
-			return idx, nil
+			return p.parseBinary(idx)
 		}
 	default:
 		return p.ParseValue()
@@ -477,6 +483,10 @@ func (p *Parser) ParseValue() (ast.Value, error) {
 		return nil, err
 	}
 
+	return p.parseBinary(primary)
+}
+
+func (p *Parser) parseBinary(left ast.Primary) (ast.Value, error) {
 	if p.matchCurrent(lexer.Operator, "") {
 		operator_tk, err := p.Expect(lexer.Operator, "")
 		if err != nil {
@@ -494,16 +504,16 @@ func (p *Parser) ParseValue() (ast.Value, error) {
 		}
 
 		binary := &ast.Binary{
-			Left:     primary,
+			Left:     left,
 			Operator: operator,
 			Right:    right,
 		}
-		binary.SetPosition(primary.GetPosition())
+		binary.SetPosition(left.GetPosition())
 
 		return binary, nil
 	}
 
-	return primary, nil
+	return left, nil
 }
 
 // ParsePrimary parses a primary expression according to the grammar:
@@ -521,10 +531,10 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 		return p.ParseLiteral()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Punctuator, "(", 1):
 		return p.ParseCall()
-	case p.matchCurrent(lexer.Identifier, ""):
-		return p.ParseIdentifier()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Punctuator, "[", 1):
 		return p.ParseIndex()
+	case p.matchCurrent(lexer.Identifier, ""):
+		return p.ParseIdentifier()
 	case p.matchCurrent(lexer.Punctuator, "("):
 		return p.ParseSeparated()
 	case p.matchCurrent(lexer.Punctuator, "{"):
@@ -535,6 +545,7 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 		return nil, fmt.Errorf("unexpected primary expression")
 	}
 }
+
 
 // ParseLiteral parses a literal according to the grammar:
 //
