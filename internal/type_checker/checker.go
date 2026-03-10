@@ -3,6 +3,7 @@ package type_checker
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/MisustinIvan/ilang/internal/ast"
 	"github.com/MisustinIvan/ilang/internal/lexer"
@@ -223,12 +224,26 @@ func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 	return err
 }
 
-func (c *Checker) VisitIndex(a *ast.Index) error {
+func (c *Checker) VisitIndex(i *ast.Index) error {
 	var err error
+	err = errors.Join(err, i.Index.Accept(c))
 
-	err = errors.Join(err, a.Index.Accept(c))
-	if !a.Index.GetType().Equals(ast.BasicTypePtr(ast.Int)) {
-		err = errors.Join(err, typeError(a.Index.GetPosition(), "can't index array with non-integer value"))
+	if i.Identifier.Resolved == nil {
+		return errors.Join(err, typeError(i.Position, "indexing unresolved identifier"))
+	}
+
+	if !i.Index.GetType().Equals(ast.BasicTypePtr(ast.Int)) {
+		err = errors.Join(err, typeError(i.Index.GetPosition(), "can't index array with non-integer value"))
+	}
+
+	if literal, isLiteral := i.Index.(*ast.Literal); isLiteral {
+		intVal, parseErr := strconv.Atoi(literal.Value)
+		if parseErr == nil {
+			arrayType := i.Identifier.Resolved.GetType().(*ast.ArrayType)
+			if intVal < 0 || intVal >= arrayType.Length {
+				err = errors.Join(err, typeError(i.Position, "array index %d out of bounds (size %d)", intVal, arrayType.Length))
+			}
+		}
 	}
 
 	return err
