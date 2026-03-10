@@ -1,0 +1,9 @@
+extrn unit printf(string format, ...)
+
+int main() {
+	let x: [3]int = 0;
+	x[2] = 69;
+	printf("value at x[2] = %d\n", x[2]);
+	printf("hello, world!\n");
+	0
+}
