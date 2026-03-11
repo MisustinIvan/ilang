@@ -754,13 +754,12 @@ func (p *Parser) ParseUnary() (*ast.Unary, error) {
 
 // ParseFunctionArgument parses a function argument according to the grammar:
 //
-// function_argument    ::= (type | array_argument_type) identifier
-// array_argument_type  ::= "[" identifier "]" basic_type
+// function_argument    ::= type identifier
 func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
 	var Type ast.Type
 	var Identifier *ast.Identifier
 
-	Type, err := p.ParseArgumentType()
+	Type, err := p.ParseType()
 	if err != nil {
 		return nil, err
 	}
@@ -776,106 +775,68 @@ func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
 	}, nil
 }
 
-func (p *Parser) ParseArgumentType() (ast.Type, error) {
-	if p.matchCurrent(lexer.Punctuator, "[") {
-		p.next()
-
-		if p.matchCurrent(lexer.Literal, "") {
-			// Fixed-size array: [5]int
-			literal, err := p.ParseLiteral()
-			if err != nil {
-				return nil, err
-			}
-			length, err := strconv.Atoi(literal.Value)
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = p.Expect(lexer.Punctuator, "]")
-			if err != nil {
-				return nil, err
-			}
-
-			basicType, err := p.ParseBasicType()
-			if err != nil {
-				return nil, err
-			}
-
-			return &ast.ArrayType{
-				Element: *basicType,
-				Length:  length,
-			}, nil
-		} else {
-			// Dynamic-size array: [n]int
-			LengthIdentifier, err := p.ParseIdentifier()
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = p.Expect(lexer.Punctuator, "]")
-			if err != nil {
-				return nil, err
-			}
-
-			basicType, err := p.ParseBasicType()
-			if err != nil {
-				return nil, err
-			}
-
-			return &ast.ArrayArgumentType{
-				Element:          *basicType,
-				LengthIdentifier: LengthIdentifier,
-			}, nil
-		}
-	} else {
-		return p.ParseBasicType()
-	}
-}
-
 // ParseType parses a type according to the grammar:
 //
-// type                 ::= basic_type | array_type
+// type                 ::= basic_type | array_type | slice_type
 func (p *Parser) ParseType() (ast.Type, error) {
 	if p.matchCurrent(lexer.Punctuator, "[") {
-		return p.ParseArrayType()
+		return p.ParseBracketedType()
 	} else if p.matchCurrent(lexer.Identifier, "") {
 		return p.ParseBasicType()
 	}
 	return nil, parseError("invalid type", p.peek().Position)
 }
 
-// ParseArrayType parses an array type according to the grammar:
+// ParseBracketedType parses a type that starts with an opening bracket,
+// which can be either an array_type or a slice_type (anonymous or named).
 //
-// array_type           ::= "[" value "]" basic_type
-func (p *Parser) ParseArrayType() (*ast.ArrayType, error) {
-	var Length int
-	var BasicType *ast.BasicType
+// array_type           ::= "[" int_literal "]" basic_type
+// slice_type           ::= "[" [identifier] "]" basic_type
+func (p *Parser) ParseBracketedType() (ast.Type, error) {
 	if _, err := p.Expect(lexer.Punctuator, "["); err != nil {
 		return nil, err
 	}
 
-	tk, err := p.next()
-	if err != nil {
-		return nil, err
-	}
+	var length *int
+	var lengthId *ast.Identifier
 
-	Length, err = strconv.Atoi(tk.Value)
-	if err != nil {
-		return nil, err
+	if p.matchCurrent(lexer.Literal, "") {
+		tk, err := p.next()
+		if err != nil {
+			return nil, err
+		}
+		l, err := strconv.Atoi(tk.Value)
+		if err != nil {
+			return nil, err
+		}
+		length = &l
+	} else if p.matchCurrent(lexer.Identifier, "") {
+		id, err := p.ParseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+		lengthId = id
 	}
 
 	if _, err := p.Expect(lexer.Punctuator, "]"); err != nil {
 		return nil, err
 	}
 
-	BasicType, err = p.ParseBasicType()
+	basicType, err := p.ParseBasicType()
 	if err != nil {
 		return nil, err
 	}
 
-	return &ast.ArrayType{
-		Element: *BasicType,
-		Length:  Length,
+	if length != nil {
+		return &ast.ArrayType{
+			Element: *basicType,
+			Length:  *length,
+		}, nil
+	}
+
+	return &ast.SliceType{
+		Element:          *basicType,
+		LengthIdentifier: lengthId,
 	}, nil
 }
 
