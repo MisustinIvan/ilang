@@ -194,4 +194,7 @@ func (r *Resolver) VisitIndex(i *ast.Index) error {
 
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
 func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
-func (r *Resolver) VisitLiteral(l *ast.Literal) error     { return nil }
+func (r *Resolver) VisitArrayArgumentType(t *ast.ArrayArgumentType) error {
+	return r.Declare(t.LengthIdentifier)
+}
+func (r *Resolver) VisitLiteral(l *ast.Literal) error { return nil }
