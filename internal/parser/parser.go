@@ -754,12 +754,13 @@ func (p *Parser) ParseUnary() (*ast.Unary, error) {
 
 // ParseFunctionArgument parses a function argument according to the grammar:
 //
-// function_argument    ::= basic_type identifier
+// function_argument    ::= (type | array_argument_type) identifier
+// array_argument_type  ::= "[" identifier "]" basic_type
 func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
-	var Type *ast.BasicType
+	var Type ast.Type
 	var Identifier *ast.Identifier
 
-	Type, err := p.ParseBasicType()
+	Type, err := p.ParseArgumentType()
 	if err != nil {
 		return nil, err
 	}
@@ -770,9 +771,65 @@ func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
 	}
 
 	return &ast.Argument{
-		Type:       *Type,
+		Type:       Type,
 		Identifier: Identifier,
 	}, nil
+}
+
+func (p *Parser) ParseArgumentType() (ast.Type, error) {
+	if p.matchCurrent(lexer.Punctuator, "[") {
+		p.next()
+
+		if p.matchCurrent(lexer.Literal, "") {
+			// Fixed-size array: [5]int
+			literal, err := p.ParseLiteral()
+			if err != nil {
+				return nil, err
+			}
+			length, err := strconv.Atoi(literal.Value)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = p.Expect(lexer.Punctuator, "]")
+			if err != nil {
+				return nil, err
+			}
+
+			basicType, err := p.ParseBasicType()
+			if err != nil {
+				return nil, err
+			}
+
+			return &ast.ArrayType{
+				Element: *basicType,
+				Length:  length,
+			}, nil
+		} else {
+			// Dynamic-size array: [n]int
+			LengthIdentifier, err := p.ParseIdentifier()
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = p.Expect(lexer.Punctuator, "]")
+			if err != nil {
+				return nil, err
+			}
+
+			basicType, err := p.ParseBasicType()
+			if err != nil {
+				return nil, err
+			}
+
+			return &ast.ArrayArgumentType{
+				Element:          *basicType,
+				LengthIdentifier: LengthIdentifier,
+			}, nil
+		}
+	} else {
+		return p.ParseBasicType()
+	}
 }
 
 // ParseType parses a type according to the grammar:
