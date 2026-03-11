@@ -76,6 +76,7 @@ func (c *Checker) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { r
 func (c *Checker) VisitArgument(a *ast.Argument) error                       { return nil }
 func (c *Checker) VisitBasicType(t *ast.BasicType) error                     { return nil }
 func (c *Checker) VisitArrayType(t *ast.ArrayType) error                     { return nil }
+func (c *Checker) VisitArrayArgumentType(t *ast.ArrayArgumentType) error     { return nil }
 func (c *Checker) VisitReturn(e *ast.Return) error                           { return e.Value.Accept(c) }
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
@@ -239,10 +240,12 @@ func (c *Checker) VisitIndex(i *ast.Index) error {
 	if literal, isLiteral := i.Index.(*ast.Literal); isLiteral {
 		intVal, parseErr := strconv.Atoi(literal.Value)
 		if parseErr == nil {
-			arrayType := i.Identifier.Resolved.GetType().(*ast.ArrayType)
-			if intVal < 0 || intVal >= arrayType.Length {
-				err = errors.Join(err, typeError(i.Position, "array index %d out of bounds (size %d)", intVal, arrayType.Length))
+			if arrayType, ok := i.Identifier.Resolved.GetType().(*ast.ArrayType); ok {
+				if intVal < 0 || intVal >= arrayType.Length {
+					err = errors.Join(err, typeError(i.Position, "array index %d out of bounds (size %d)", intVal, arrayType.Length))
+				}
 			}
+			// For ArrayArgumentType, we don't have a constant length to check at compile time.
 		}
 	}
 
