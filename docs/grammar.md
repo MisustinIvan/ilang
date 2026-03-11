@@ -5,7 +5,7 @@ program              ::= { declaration | external_declaration }
 
 declaration          ::= basic_type identifier "(" [ function_argument { "," function_argument } ] ")" block
 external_declaration ::= "extrn" basic_type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
-function_argument    ::= basic_type identifier
+function_argument    ::= (type | array_argument_type) identifier
 
 block                ::= "{" { expression ";" } [ expression ] "}"
 
@@ -46,6 +46,7 @@ int_literal          ::= "*."
 identifier           ::= "*."
 type                 ::= basic_type | array_type
 array_type           ::= "[" int_literal "]" basic_type
+array_argument_type  ::= "[" identifier "]" basic_type
 basic_type           ::= "int" | "bool" | "float" | "string" | "unit"
 binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
 unary_operator       ::= "-" | "!"
