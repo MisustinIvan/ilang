@@ -76,7 +76,7 @@ func (c *Checker) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { r
 func (c *Checker) VisitArgument(a *ast.Argument) error                       { return nil }
 func (c *Checker) VisitBasicType(t *ast.BasicType) error                     { return nil }
 func (c *Checker) VisitArrayType(t *ast.ArrayType) error                     { return nil }
-func (c *Checker) VisitArrayArgumentType(t *ast.ArrayArgumentType) error     { return nil }
+func (c *Checker) VisitSliceType(t *ast.SliceType) error                     { return nil }
 func (c *Checker) VisitReturn(e *ast.Return) error                           { return e.Value.Accept(c) }
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
