@@ -113,7 +113,7 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 }
 
 func (r *Resolver) VisitArgument(a *ast.Argument) error {
-	return r.Declare(a.Identifier)
+	return errors.Join(a.Type.Accept(r), r.Declare(a.Identifier))
 }
 
 func (r *Resolver) VisitReturn(e *ast.Return) error {
@@ -121,7 +121,7 @@ func (r *Resolver) VisitReturn(e *ast.Return) error {
 }
 
 func (r *Resolver) VisitBind(b *ast.Bind) error {
-	return errors.Join(b.Value.Accept(r), r.Declare(b.Identifier))
+	return errors.Join(b.Value.Accept(r), b.Type.Accept(r), r.Declare(b.Identifier))
 }
 
 func (r *Resolver) VisitIdentifier(i *ast.Identifier) error {
@@ -194,7 +194,10 @@ func (r *Resolver) VisitIndex(i *ast.Index) error {
 
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
 func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
-func (r *Resolver) VisitArrayArgumentType(t *ast.ArrayArgumentType) error {
-	return r.Declare(t.LengthIdentifier)
+func (r *Resolver) VisitSliceType(t *ast.SliceType) error {
+	if t.LengthIdentifier != nil {
+		return r.Declare(t.LengthIdentifier)
+	}
+	return nil
 }
 func (r *Resolver) VisitLiteral(l *ast.Literal) error { return nil }
