@@ -15,7 +15,7 @@ type (
 		VisitArgument(a *Argument) error
 		VisitBasicType(t *BasicType) error
 		VisitArrayType(t *ArrayType) error
-		VisitArrayArgumentType(t *ArrayArgumentType) error
+		VisitSliceType(t *SliceType) error
 		VisitReturn(r *Return) error
 		VisitBind(b *Bind) error
 		VisitLiteral(l *Literal) error
@@ -128,35 +128,37 @@ func (t *ArrayType) Equals(o Type) bool {
 	if val, ok := o.(*ArrayType); ok {
 		return t.Size() == val.Size() && t.Element == val.Element
 	}
-	if val, ok := o.(*ArrayArgumentType); ok { // this then truncates at assignment
+	if val, ok := o.(*SliceType); ok {
 		return t.Element == val.Element
 	}
 	return false
 }
 
-type ArrayArgumentType struct {
+type SliceType struct {
 	Element          BasicType
 	LengthIdentifier *Identifier
 }
 
-func (t *ArrayArgumentType) Size() int {
+func (t *SliceType) Size() int {
 	return 16 // pointer + length
 }
 
-func (t *ArrayArgumentType) String() string {
-	return fmt.Sprintf("[%s]%s", t.LengthIdentifier.Name, t.Element.String())
+func (t *SliceType) String() string {
+	if t.LengthIdentifier != nil {
+		return fmt.Sprintf("[%s]%s", t.LengthIdentifier.Name, t.Element.String())
+	}
+	return fmt.Sprintf("[]%s", t.Element.String())
 }
 
-func (t *ArrayArgumentType) Accept(v Visitor) error {
-	return v.VisitArrayArgumentType(t)
+func (t *SliceType) Accept(v Visitor) error {
+	return v.VisitSliceType(t)
 }
 
-// truncates at assignment
-func (t *ArrayArgumentType) Equals(o Type) bool {
+func (t *SliceType) Equals(o Type) bool {
 	if val, ok := o.(*ArrayType); ok {
 		return t.Element == val.Element
 	}
-	if val, ok := o.(*ArrayArgumentType); ok {
+	if val, ok := o.(*SliceType); ok {
 		return t.Element == val.Element
 	}
 	return false
