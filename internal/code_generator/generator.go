@@ -626,7 +626,27 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		if !exists {
 			return generatorError(target.Position, "unresolved identifier - \"%s\"", target.Name)
 		}
-		g.writefln("mov %%rax, -%d(%%rbp)", offset)
+
+		if arrayType, isArray := target.Resolved.GetType().(*ast.ArrayType); isArray {
+			// assuming that the assignment was already type checked and that an address is in %rax
+			count := (arrayType.Size() + 7) / 8
+			if literal, ok := a.Value.(*ast.Literal); ok && literal.Value == "0" {
+				g.writeln("# array zero-assignment")
+				g.writeln("xor %rax, %rax")
+				g.writefln("mov $%d, %%rcx", count)
+				g.writefln("lea -%d(%%rbp), %%rdi", offset)
+				g.writeln("rep stosq")
+			} else {
+				g.writeln("# array copy assignment")
+				g.writeln("mov %rax, %rsi")
+				g.writefln("lea -%d(%%rbp), %%rdi", offset)
+				g.writefln("mov $%d, %%rcx", count)
+				g.writeln("rep movsq")
+			}
+		} else {
+			// scalar assignment
+			g.writefln("mov %%rax, -%d(%%rbp)", offset)
+		}
 	case *ast.Index:
 		g.writeln("push %rax") // save value
 
