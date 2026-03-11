@@ -1,9 +1,32 @@
 extrn unit printf(string format, ...)
 
+unit print_array([n]int) {
+	...
+}
+
 int main() {
+
 	let x: [3]int = 0;
-	x[2] = 69;
+	let y: [3]int = 0;
+	x[0] = 1;
+	x[1] = 2;
+	x[2] = 3;
+	y[0] = 4;
+	y[1] = 5;
+	y[2] = 6;
+	printf("value at x[0] = %d\n", x[0]);
+	printf("value at x[1] = %d\n", x[1]);
 	printf("value at x[2] = %d\n", x[2]);
-	printf("hello, world!\n");
+	printf("value at y[0] = %d\n", y[0]);
+	printf("value at y[1] = %d\n", y[1]);
+	printf("value at y[2] = %d\n", y[2]);
+	x=y;
+	printf("\n");
+	printf("value at x[0] = %d\n", x[0]);
+	printf("value at x[1] = %d\n", x[1]);
+	printf("value at x[2] = %d\n", x[2]);
+	printf("value at y[0] = %d\n", y[0]);
+	printf("value at y[1] = %d\n", y[1]);
+	printf("value at y[2] = %d\n", y[2]);
 	0
 }
