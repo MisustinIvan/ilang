@@ -71,8 +71,10 @@ func (r *Resolver) VisitArgument(a *ast.Argument) error {
 
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
 func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
-func (r *Resolver) VisitArrayArgumentType(t *ast.ArrayArgumentType) error {
-	t.LengthIdentifier.SetType(ast.BasicTypePtr(ast.Int))
+func (r *Resolver) VisitSliceType(t *ast.SliceType) error {
+	if t.LengthIdentifier != nil {
+		t.LengthIdentifier.SetType(ast.BasicTypePtr(ast.Int))
+	}
 	return nil
 }
 
@@ -84,6 +86,7 @@ func (r *Resolver) VisitReturn(e *ast.Return) error {
 }
 
 func (r *Resolver) VisitBind(b *ast.Bind) error {
+	b.Type.Accept(r)
 	b.Identifier.SetType(b.Type)
 	b.SetType(b.Type)
 	return b.Value.Accept(r)
@@ -214,10 +217,10 @@ func (r *Resolver) VisitIndex(i *ast.Index) error {
 
 	if t, isArray := i.Identifier.Resolved.GetType().(*ast.ArrayType); isArray {
 		i.SetType(&t.Element)
-	} else if t, isArrayArg := i.Identifier.Resolved.GetType().(*ast.ArrayArgumentType); isArrayArg {
+	} else if t, isSlice := i.Identifier.Resolved.GetType().(*ast.SliceType); isSlice {
 		i.SetType(&t.Element)
 	} else {
-		return fmt.Errorf("indexing identifier of non-array type")
+		return fmt.Errorf("indexing identifier of non-array/slice type")
 	}
 
 	return err
