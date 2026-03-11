@@ -64,12 +64,18 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 }
 
 func (r *Resolver) VisitArgument(a *ast.Argument) error {
-	a.Identifier.SetType(&a.Type)
+	a.Type.Accept(r)
+	a.Identifier.SetType(a.Type)
 	return nil
 }
 
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
 func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
+func (r *Resolver) VisitArrayArgumentType(t *ast.ArrayArgumentType) error {
+	t.LengthIdentifier.SetType(ast.BasicTypePtr(ast.Int))
+	return nil
+}
+
 func (r *Resolver) VisitReturn(e *ast.Return) error {
 	var err error
 	err = errors.Join(err, e.Value.Accept(r))
@@ -207,6 +213,8 @@ func (r *Resolver) VisitIndex(i *ast.Index) error {
 	err = errors.Join(err, i.Index.Accept(r))
 
 	if t, isArray := i.Identifier.Resolved.GetType().(*ast.ArrayType); isArray {
+		i.SetType(&t.Element)
+	} else if t, isArrayArg := i.Identifier.Resolved.GetType().(*ast.ArrayArgumentType); isArrayArg {
 		i.SetType(&t.Element)
 	} else {
 		return fmt.Errorf("indexing identifier of non-array type")
