@@ -225,6 +225,28 @@ func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 	return err
 }
 
+func (c *Checker) VisitArrayLiteral(a *ast.ArrayLiteral) error {
+	var err error
+
+	if len(a.Values) == 0 {
+		return typeError(a.Position, "empty array literals are not supported yet")
+	}
+
+	if a.GetType().Equals(ast.BasicTypePtr(ast.Undefined)) {
+		return typeError(a.Position, "array literal has undefined or unsupported element type")
+	}
+
+	elementType := a.Values[0].GetType()
+	for i, val := range a.Values {
+		err = errors.Join(err, val.Accept(c))
+		if i > 0 && !val.GetType().Equals(elementType) {
+			err = errors.Join(err, typeError(val.GetPosition(), "array literal element type mismatch: expected %v, got %v", elementType, val.GetType()))
+		}
+	}
+
+	return err
+}
+
 func (c *Checker) VisitIndex(i *ast.Index) error {
 	var err error
 	err = errors.Join(err, i.Index.Accept(c))
