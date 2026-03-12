@@ -541,9 +541,49 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 		return p.ParseBlock()
 	case p.matchCurrent(lexer.Keyword, lexer.KeywordIf):
 		return p.ParseCondition()
+	case p.matchCurrent(lexer.Punctuator, "["):
+		return p.ParseArrayLiteral()
 	default:
 		return nil, fmt.Errorf("unexpected primary expression")
 	}
+}
+
+// ParseArrayLiteral parses an array literal according to the grammar:
+//
+// array_literal        ::= "[" [ value { "," value } ] "]"
+func (p *Parser) ParseArrayLiteral() (*ast.ArrayLiteral, error) {
+	var Values []ast.Value
+
+	start_tk, err := p.Expect(lexer.Punctuator, "[")
+	if err != nil {
+		return nil, err
+	}
+
+	for !p.matchCurrent(lexer.Punctuator, "]") {
+		val, err := p.ParseValue()
+		if err != nil {
+			return nil, err
+		}
+		Values = append(Values, val)
+
+		if p.matchCurrent(lexer.Punctuator, ",") {
+			p.next()
+		} else if !p.matchCurrent(lexer.Punctuator, "]") {
+			return nil, parseError("expected ',' or ']' in array literal", p.peek().Position)
+		}
+	}
+
+	_, err = p.Expect(lexer.Punctuator, "]")
+	if err != nil {
+		return nil, err
+	}
+
+	arrayLiteral := &ast.ArrayLiteral{
+		Values: Values,
+	}
+	arrayLiteral.SetPosition(start_tk.Position)
+
+	return arrayLiteral, nil
 }
 
 // ParseLiteral parses a literal according to the grammar:
