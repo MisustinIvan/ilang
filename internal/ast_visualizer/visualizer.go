@@ -336,6 +336,19 @@ func (v *AstVisualizer) VisitAssignment(a *ast.Assignment) error {
 	return a.Value.Accept(v)
 }
 
+func (v *AstVisualizer) VisitArrayLiteral(a *ast.ArrayLiteral) error {
+	v.WriteNode("ArrayLiteral", none)
+	defer v.Pop()
+	v.WriteNode("Values", none)
+	for _, val := range a.Values {
+		if err := val.Accept(v); err != nil {
+			return err
+		}
+	}
+	v.Pop()
+	return nil
+}
+
 func (v *AstVisualizer) VisitIndex(i *ast.Index) error {
 	v.WriteNode("Index", none)
 	defer v.Pop()
