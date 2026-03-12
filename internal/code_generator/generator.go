@@ -3,7 +3,6 @@ package code_generator
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/MisustinIvan/ilang/internal/ast"
@@ -49,8 +48,14 @@ func (f *localFinder) VisitProgram(p *ast.Program) error                        
 func (f *localFinder) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { return nil }
 func (f *localFinder) VisitBasicType(t *ast.BasicType) error                     { return nil }
 func (f *localFinder) VisitArrayType(t *ast.ArrayType) error                     { return nil }
-func (f *localFinder) VisitLiteral(l *ast.Literal) error                         { return nil }
-func (f *localFinder) VisitIdentifier(i *ast.Identifier) error                   { return nil }
+func (f *localFinder) VisitSliceType(t *ast.SliceType) error {
+	if t.LengthIdentifier != nil {
+		f.declareLocal(8, t.LengthIdentifier)
+	}
+	return nil
+}
+func (f *localFinder) VisitLiteral(l *ast.Literal) error       { return nil }
+func (f *localFinder) VisitIdentifier(i *ast.Identifier) error { return nil }
 
 func (f *localFinder) VisitDeclaration(d *ast.Declaration) error {
 	for _, arg := range d.Args {
@@ -61,7 +66,14 @@ func (f *localFinder) VisitDeclaration(d *ast.Declaration) error {
 }
 
 func (f *localFinder) VisitArgument(a *ast.Argument) error {
-	f.declareLocal(a.Type.Size(), a.Identifier)
+	a.Type.Accept(f)
+	size := a.Type.Size()
+	_, isArray := a.Type.(*ast.ArrayType)
+	_, isSlice := a.Type.(*ast.SliceType)
+	if isArray || isSlice {
+		size = 16
+	}
+	f.declareLocal(size, a.Identifier)
 	return nil
 }
 
@@ -71,6 +83,7 @@ func (f *localFinder) VisitReturn(r *ast.Return) error {
 }
 
 func (f *localFinder) VisitBind(b *ast.Bind) error {
+	b.Type.Accept(f) // for slice types with a length identifier
 	f.declareLocal(b.Type.Size(), b.Identifier)
 	b.Value.Accept(f)
 	return nil
@@ -281,25 +294,61 @@ func (g *Generator) argLocation(n int) (string, error) {
 	}
 }
 
+func (g *Generator) isArgument(id *ast.Identifier) bool {
+	for _, arg := range g.ctx.currentDecl.Args {
+		if arg.Identifier == id {
+			return true
+		}
+	}
+	return false
+}
+
 // VisitArgument() generates code to move the function argument from its
 // location in a register according to the linux x86_64 calling conventions to
 // a local variable in the function scope. It currently supports only up to
 // 6 arguments.
 func (g *Generator) VisitArgument(a *ast.Argument) error {
-	location, err := g.argLocation(g.ctx.argsGenerated)
-	g.ctx.argsGenerated++
-	if err != nil {
-		return err
-	}
-
 	offset := g.ctx.locals[a.Identifier]
-	g.writeln("# move function argument to local")
-	g.writefln("mov %s, -%d(%%rbp)", location, offset)
-	return nil
+
+	switch t := a.Type.(type) {
+	case *ast.SliceType, *ast.ArrayType:
+		// Slices and arrays are passed as two 8-byte values: length and pointer
+		lenLocation, err := g.argLocation(g.ctx.argsGenerated)
+		g.ctx.argsGenerated++
+		if err != nil {
+			return err
+		}
+		ptrLocation, err := g.argLocation(g.ctx.argsGenerated)
+		g.ctx.argsGenerated++
+		if err != nil {
+			return err
+		}
+
+		g.writeln("# move slice/array length and pointer to local")
+		g.writefln("mov %s, -%d(%%rbp)", lenLocation, offset-8)
+		g.writefln("mov %s, -%d(%%rbp)", ptrLocation, offset)
+
+		if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
+			lenOffset := g.ctx.locals[st.LengthIdentifier]
+			g.writefln("mov %s, -%d(%%rbp)", lenLocation, lenOffset)
+		}
+		return nil
+
+	default:
+		location, err := g.argLocation(g.ctx.argsGenerated)
+		g.ctx.argsGenerated++
+		if err != nil {
+			return err
+		}
+		g.writeln("# move function argument to local")
+		g.writefln("mov %s, -%d(%%rbp)", location, offset)
+		return nil
+	}
 }
 
 func (g *Generator) VisitBasicType(t *ast.BasicType) error { return nil }
 func (g *Generator) VisitArrayType(t *ast.ArrayType) error { return nil }
+func (g *Generator) VisitSliceType(t *ast.SliceType) error { return nil }
 
 // VisitReturn() generates code to move the return value to %rax and then return
 func (g *Generator) VisitReturn(r *ast.Return) error {
@@ -324,19 +373,58 @@ func (g *Generator) VisitBind(b *ast.Bind) error {
 	g.writeln("# bind expression")
 	offset := g.ctx.locals[b.Identifier]
 
-	if arrayType, isArray := b.Type.(*ast.ArrayType); isArray {
+	err := b.Type.Accept(g)
+	if err != nil {
+		return err
+	}
+
+	switch t := b.Type.(type) {
+	case *ast.ArrayType:
+		// Array zero-initialization
 		if literal, isLiteral := b.Value.(*ast.Literal); isLiteral && literal.Value == "0" {
 			g.writeln("# array zero-initialization")
 			g.writeln("xor %rax, %rax")
 
-			count := (arrayType.Size() + 7) / 8
+			count := (t.Size() + 7) / 8
 			g.writefln("mov $%d, %%rcx", count)
 			g.writefln("lea -%d(%%rbp), %%rdi", offset)
 			g.writeln("rep stosq")
 		} else {
 			return generatorError(b.Position, "only zero-intialization is allowed for arrays for now")
 		}
-	} else {
+	case *ast.SliceType:
+		// Slice binding
+		valueIdentifier := b.Value.(*ast.Identifier).Resolved
+
+		// get slice length
+		switch t := b.Value.GetType().(type) {
+		case *ast.ArrayType:
+			// length from array
+			g.writefln("mov $%d, %%rax # length from array", t.Length)
+		case *ast.SliceType:
+			// length from slice
+			valOffset := g.ctx.locals[valueIdentifier]
+			g.writefln("mov -%d(%%rbp), %%rax # length from slice", valOffset-8)
+		default:
+			return generatorError(b.Value.GetPosition(), "expected array or slice type, got %v", b.Value.GetType())
+		}
+
+		// store the length for the bound slice
+		g.writefln("mov %%rax, -%d(%%rbp)", offset-8)
+		// store value if bound slice has a length identifier
+		if t.LengthIdentifier != nil {
+			lenOffset := g.ctx.locals[t.LengthIdentifier]
+			g.writefln("mov %%rax, -%d(%%rbp)", lenOffset)
+		}
+
+		// get pointer
+		if err := b.Value.Accept(g); err != nil {
+			return err
+		}
+		// store pointer
+		g.writefln("mov %%rax, -%d(%%rbp)", offset)
+
+	case *ast.BasicType:
 		g.writeln("# scalar value binding")
 		if err := b.Value.Accept(g); err != nil {
 			return err
@@ -398,10 +486,19 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 		return generatorError(i.Position, "unresolved identifier - \"%s\"", i.Name)
 	}
 
-	if _, isArray := i.Resolved.GetType().(*ast.ArrayType); isArray {
-		g.writeln("# move resolved address of array type to %rax")
-		g.writefln("lea -%d(%%rbp), %%rax", offset)
-	} else {
+	switch i.Resolved.GetType().(type) {
+	case *ast.ArrayType:
+		if g.isArgument(i.Resolved) {
+			g.writeln("# move pointer value of array argument to %rax")
+			g.writefln("mov -%d(%%rbp), %%rax", offset)
+		} else {
+			g.writeln("# move resolved address of array type to %rax")
+			g.writefln("lea -%d(%%rbp), %%rax", offset)
+		}
+	case *ast.SliceType:
+		g.writeln("# move pointer value of slice type to %rax")
+		g.writefln("mov -%d(%%rbp), %%rax", offset)
+	case *ast.BasicType:
 		g.writeln("# move resolved value of simple type to %rax")
 		g.writefln("mov -%d(%%rbp), %%rax", offset)
 	}
@@ -417,20 +514,60 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 // or normally for user-defined functions.
 func (g *Generator) VisitCall(c *ast.Call) error {
 	g.writeln("# call expression")
+
+	physicalArgCount := 0
+
 	g.writeln("# arguments")
 	for i, arg := range c.Arguments {
 		g.writefln("# argument %d", i)
-		if err := arg.Accept(g); err != nil {
-			return err
+		switch t := arg.GetType().(type) {
+		case *ast.BasicType:
+			if err := arg.Accept(g); err != nil {
+				return err
+			}
+			g.writeln("push %rax # push argument of basic type")
+			physicalArgCount += 1
+		case *ast.ArrayType:
+			// arrays passed as slices - (length, pointer)
+			// get length
+			g.writefln("mov $%d, %%rax", t.Length)
+			g.writeln("push %rax # push array length")
+
+			// get pointer
+			if err := arg.Accept(g); err != nil {
+				return err
+			}
+			g.writeln("push %rax # push array pointer")
+
+			physicalArgCount += 2
+
+		case *ast.SliceType:
+			// slices passed as - (length, pointer)
+			if identifier, isIdentifier := arg.(*ast.Identifier); isIdentifier {
+				offset := g.ctx.locals[identifier.Resolved]
+				g.writefln("mov -%d(%%rbp), %%rax # length of slice", offset-8)
+				g.writeln("push %rax # push slice length")
+			} else {
+				return generatorError(arg.GetPosition(), "slices can be only passed as identifiers")
+			}
+
+			if err := arg.Accept(g); err != nil {
+				return err
+			}
+			g.writeln("push %rax # push slice pointer")
+
+			physicalArgCount += 2
 		}
-		g.writefln("push %%rax # temporarily store argument %d", i)
 	}
 
 	g.writeln("# clear %rax for variadic functions")
 	g.writeln("xor %rax, %rax")
 
-	for i := range slices.Backward(c.Arguments) {
-		reg, _ := g.argLocation(i)
+	for i := physicalArgCount - 1; i >= 0; i-- {
+		reg, err := g.argLocation(i)
+		if err != nil {
+			return err
+		}
 		g.writefln("pop %s # pop argument %d", reg, i)
 	}
 
@@ -659,7 +796,14 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		if !exists {
 			return generatorError(target.Identifier.Position, "unresolved identifier - \"%s\"", target.Identifier.Name)
 		}
-		g.writefln("lea -%d(%%rbp), %%rcx", offset)
+
+		if _, isSlice := target.Identifier.Resolved.GetType().(*ast.SliceType); isSlice {
+			g.writefln("mov -%d(%%rbp), %%rcx", offset)
+		} else if _, isArray := target.Identifier.Resolved.GetType().(*ast.ArrayType); isArray && g.isArgument(target.Identifier.Resolved) {
+			g.writefln("mov -%d(%%rbp), %%rcx", offset)
+		} else {
+			g.writefln("lea -%d(%%rbp), %%rcx", offset)
+		}
 
 		elementSize := target.GetType().Size()
 		g.writeln("pop %rdx") // index
@@ -687,7 +831,14 @@ func (g *Generator) VisitIndex(i *ast.Index) error {
 	if !exists {
 		return generatorError(i.Identifier.Position, "unresolved identifier - \"%s\"", i.Identifier.Name)
 	}
-	g.writefln("lea -%d(%%rbp), %%rcx", offset)
+
+	if _, isSlice := i.Identifier.Resolved.GetType().(*ast.SliceType); isSlice {
+		g.writefln("mov -%d(%%rbp), %%rcx", offset)
+	} else if _, isArray := i.Identifier.Resolved.GetType().(*ast.ArrayType); isArray && g.isArgument(i.Identifier.Resolved) {
+		g.writefln("mov -%d(%%rbp), %%rcx", offset)
+	} else {
+		g.writefln("lea -%d(%%rbp), %%rcx", offset)
+	}
 
 	elementSize := i.GetType().Size()
 	g.writeln("pop %rdx")
