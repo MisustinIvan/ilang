@@ -14,10 +14,10 @@ func generatorError(position lexer.Position, msg string, args ...any) error {
 }
 
 type functionContext struct {
-	currentDecl   *ast.Declaration        // current function declaration ast node
-	locals        map[*ast.Identifier]int // maps a local identifier to a stack offset
-	stackOffset   int                     // total stack offset of the function to allocate memory on the stack
-	argsGenerated int                     // how many function arguments had their code generated
+	currentDecl   *ast.Declaration // current function declaration ast node
+	locals        map[any]int      // maps a local identifier or node to a stack offset
+	stackOffset   int              // total stack offset of the function to allocate memory on the stack
+	argsGenerated int              // how many function arguments had their code generated
 }
 
 type Generator struct {
@@ -36,12 +36,12 @@ func (g *Generator) label() string {
 
 type localFinder struct {
 	stackOffset int
-	locals      map[*ast.Identifier]int
+	locals      map[any]int
 }
 
-func (f *localFinder) declareLocal(size int, identifier *ast.Identifier) {
+func (f *localFinder) declareLocal(size int, key any) {
 	f.stackOffset += size
-	f.locals[identifier] = f.stackOffset
+	f.locals[key] = f.stackOffset
 }
 
 func (f *localFinder) VisitProgram(p *ast.Program) error                         { return nil }
@@ -139,10 +139,18 @@ func (f *localFinder) VisitIndex(i *ast.Index) error {
 	return nil
 }
 
-func findLocals(d *ast.Declaration) (map[*ast.Identifier]int, int) {
+func (f *localFinder) VisitArrayLiteral(a *ast.ArrayLiteral) error {
+	for _, val := range a.Values {
+		val.Accept(f)
+	}
+	f.declareLocal(a.GetType().Size(), a)
+	return nil
+}
+
+func findLocals(d *ast.Declaration) (map[any]int, int) {
 	l := &localFinder{
 		stackOffset: 0,
-		locals:      map[*ast.Identifier]int{},
+		locals:      map[any]int{},
 	}
 
 	d.Accept(l)
@@ -380,8 +388,8 @@ func (g *Generator) VisitBind(b *ast.Bind) error {
 
 	switch t := b.Type.(type) {
 	case *ast.ArrayType:
-		// Array zero-initialization
 		if literal, isLiteral := b.Value.(*ast.Literal); isLiteral && literal.Value == "0" {
+			// Array zero-initialization
 			g.writeln("# array zero-initialization")
 			g.writeln("xor %rax, %rax")
 
@@ -389,8 +397,20 @@ func (g *Generator) VisitBind(b *ast.Bind) error {
 			g.writefln("mov $%d, %%rcx", count)
 			g.writefln("lea -%d(%%rbp), %%rdi", offset)
 			g.writeln("rep stosq")
+		} else if arrLiteral, ok := b.Value.(*ast.ArrayLiteral); ok {
+			// Array from literal
+			return g.generateArrayLiteralInit(arrLiteral, offset)
 		} else {
-			return generatorError(b.Position, "only zero-intialization is allowed for arrays for now")
+			// Assume its an array copy from another array that returns an address in %rax
+			if err := b.Value.Accept(g); err != nil {
+				return err
+			}
+			count := (t.Size() + 7) / 8
+			g.writeln("# array copy binding")
+			g.writeln("mov %rax, %rsi")
+			g.writefln("lea -%d(%%rbp), %%rdi", offset)
+			g.writefln("mov $%d, %%rcx", count)
+			g.writeln("rep movsq")
 		}
 	case *ast.SliceType:
 		// Slice binding
@@ -753,9 +773,6 @@ func (g *Generator) VisitCondition(c *ast.Condition) error {
 // and to an array.
 func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 	g.writeln("# assignment expression")
-	if err := a.Value.Accept(g); err != nil {
-		return err
-	}
 
 	switch target := a.Target.(type) {
 	case *ast.Identifier:
@@ -765,15 +782,21 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		}
 
 		if arrayType, isArray := target.Resolved.GetType().(*ast.ArrayType); isArray {
-			// assuming that the assignment was already type checked and that an address is in %rax
-			count := (arrayType.Size() + 7) / 8
 			if literal, ok := a.Value.(*ast.Literal); ok && literal.Value == "0" {
 				g.writeln("# array zero-assignment")
 				g.writeln("xor %rax, %rax")
+				count := (arrayType.Size() + 7) / 8
 				g.writefln("mov $%d, %%rcx", count)
 				g.writefln("lea -%d(%%rbp), %%rdi", offset)
 				g.writeln("rep stosq")
+			} else if arrLiteral, ok := a.Value.(*ast.ArrayLiteral); ok {
+				return g.generateArrayLiteralInit(arrLiteral, offset)
 			} else {
+				if err := a.Value.Accept(g); err != nil {
+					return err
+				}
+				// assuming that the assignment was already type checked and that an address is in %rax
+				count := (arrayType.Size() + 7) / 8
 				g.writeln("# array copy assignment")
 				g.writeln("mov %rax, %rsi")
 				g.writefln("lea -%d(%%rbp), %%rdi", offset)
@@ -781,10 +804,16 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 				g.writeln("rep movsq")
 			}
 		} else {
+			if err := a.Value.Accept(g); err != nil {
+				return err
+			}
 			// scalar assignment
 			g.writefln("mov %%rax, -%d(%%rbp)", offset)
 		}
 	case *ast.Index:
+		if err := a.Value.Accept(g); err != nil {
+			return err
+		}
 		g.writeln("push %rax") // save value
 
 		if err := target.Index.Accept(g); err != nil {
@@ -813,6 +842,39 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		return generatorError(a.Position, "invalid assignment target")
 	}
 
+	return nil
+}
+
+func (g *Generator) generateArrayLiteralInit(a *ast.ArrayLiteral, baseOffset int) error {
+	g.writefln("# array literal initialization at offset %d", baseOffset)
+	elementType := a.Values[0].GetType()
+	elementSize := elementType.Size()
+
+	for i, val := range a.Values {
+		g.writefln("# element %d", i)
+		if err := val.Accept(g); err != nil {
+			return err
+		}
+		// Calculate offset for this element
+		elementOffset := baseOffset - (i * elementSize)
+		g.writefln("mov %%rax, -%d(%%rbp)", elementOffset)
+	}
+	return nil
+}
+
+func (g *Generator) VisitArrayLiteral(a *ast.ArrayLiteral) error {
+	offset, exists := g.ctx.locals[a]
+	if !exists {
+		return generatorError(a.Position, "anonymous array literal has no stack space")
+	}
+
+	err := g.generateArrayLiteralInit(a, offset)
+	if err != nil {
+		return err
+	}
+
+	// Return address of the literal in %rax
+	g.writefln("lea -%d(%%rbp), %%rax", offset)
 	return nil
 }
 
