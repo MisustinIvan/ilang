@@ -192,6 +192,14 @@ func (r *Resolver) VisitIndex(i *ast.Index) error {
 	return errors.Join(i.Identifier.Accept(r), i.Index.Accept(r))
 }
 
+func (r *Resolver) VisitArrayLiteral(a *ast.ArrayLiteral) error {
+	var err error
+	for _, val := range a.Values {
+		err = errors.Join(err, val.Accept(r))
+	}
+	return err
+}
+
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
 func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
 func (r *Resolver) VisitSliceType(t *ast.SliceType) error {
