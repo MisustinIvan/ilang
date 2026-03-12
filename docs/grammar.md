@@ -35,19 +35,35 @@ primary              ::= literal
                        | condition
                        | index
 
+literal              ::= basic_literal
+                       | array_literal
+
+basic_literal        ::= int_literal
+                       | float_literal
+                       | string_literal
+                       | bool_literal
+
+array_literal        ::= "[" [ value { "," value } ] "]"
+
 call                 ::= identifier "(" [ value { "," value } ] ")"
 separated            ::= "(" value ")"
 condition            ::= "if" value value
                          [ "else" value ]
 
+identifier           ::= letter { letter | digit | "_" }
+int_literal          ::= digit { digit }
+float_literal        ::= digit { digit } "." { digit }
+string_literal       ::= "\"" { * } "\""
+bool_literal         ::= "true" | "false"
 
-literal              ::= "*."
-int_literal          ::= "*."
-identifier           ::= "*."
 type                 ::= basic_type | array_type | slice_type
 array_type           ::= "[" int_literal "]" basic_type
 slice_type           ::= "[" [identifier] "]" basic_type
 basic_type           ::= "int" | "bool" | "float" | "string" | "unit"
-binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
+
+binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
 unary_operator       ::= "-" | "!"
+
+letter               ::= "a" | ... | "z" | "A" | ... | "Z" | "_"
+digit                ::= "0" | ... | "9"
 ```
