@@ -1,0 +1,30 @@
+extrn unit printf(string format, ...)
+
+unit print_slice([slice_len]int slice) {
+    if slice_len >= 3 {
+        printf("slice[0] = %d, len = %d\n", slice[0], slice_len);
+        printf("slice[1] = %d, len = %d\n", slice[1], slice_len);
+        printf("slice[2] = %d, len = %d\n", slice[2], slice_len);
+    };
+}
+
+int main() {
+    let a: [3]int = 0;
+    a[1] = 123;
+
+    let b: []int = a;
+    let c: [c_len]int = a;
+
+	printf("c_len: %d\n", c_len);
+
+
+    print_slice(a);
+    print_slice(b);
+    print_slice(c);
+
+    if c_len != 3 {
+        return 1;
+    };
+
+    0
+}

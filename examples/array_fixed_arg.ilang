@@ -1,0 +1,11 @@
+extrn unit printf(string format, ...)
+
+unit print_fixed([3]int arr) {
+    printf("fixed first: %d\n", arr[0]);
+}
+
+unit main() {
+    let a: [3]int = 0;
+    a[0] = 99;
+    print_fixed(a);
+}
