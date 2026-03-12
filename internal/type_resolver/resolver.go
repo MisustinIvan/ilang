@@ -209,6 +209,33 @@ func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
 	return err
 }
 
+func (r *Resolver) VisitArrayLiteral(a *ast.ArrayLiteral) error {
+	var err error
+
+	if len(a.Values) == 0 {
+		a.SetType(ast.BasicTypePtr(ast.Unit))
+		return nil
+	}
+
+	for _, val := range a.Values {
+		err = errors.Join(err, val.Accept(r))
+	}
+
+	// Infer type from the first element
+	elementType := a.Values[0].GetType()
+	if basicType, ok := elementType.(*ast.BasicType); ok {
+		a.SetType(&ast.ArrayType{
+			Element: *basicType,
+			Length:  len(a.Values),
+		})
+	} else {
+		// nested arrays or arrays of complex types(in the future) are not supported yet
+		a.SetType(ast.BasicTypePtr(ast.Undefined))
+	}
+
+	return err
+}
+
 func (r *Resolver) VisitIndex(i *ast.Index) error {
 	var err error
 
