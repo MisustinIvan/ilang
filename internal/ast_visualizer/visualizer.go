@@ -189,6 +189,18 @@ func (v *AstVisualizer) VisitArrayType(t *ast.ArrayType) error {
 	return nil
 }
 
+func (v *AstVisualizer) VisitSliceType(t *ast.SliceType) error {
+	v.WriteNode("SliceType", orange)
+	defer v.Pop()
+	if t.LengthIdentifier != nil {
+		if err := t.LengthIdentifier.Accept(v); err != nil {
+			return err
+		}
+	}
+	v.writeBasicType(t.Element)
+	return nil
+}
+
 func (v *AstVisualizer) VisitReturn(r *ast.Return) error {
 	v.WriteNode("Return", none)
 	defer v.Pop()
@@ -326,9 +338,11 @@ func (v *AstVisualizer) VisitAssignment(a *ast.Assignment) error {
 
 func (v *AstVisualizer) VisitIndex(i *ast.Index) error {
 	v.WriteNode("Index", none)
-	if err := i.Type.Accept(v); err != nil {
+	defer v.Pop()
+	if err := i.Identifier.Accept(v); err != nil {
 		return err
 	}
+	v.WriteNode("Index value", none)
 	defer v.Pop()
 	return i.Index.Accept(v)
 }
