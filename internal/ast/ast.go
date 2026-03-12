@@ -127,10 +127,7 @@ func (t *ArrayType) Accept(v Visitor) error {
 
 func (t *ArrayType) Equals(o Type) bool {
 	if val, ok := o.(*ArrayType); ok {
-		return t.Size() == val.Size() && t.Element == val.Element
-	}
-	if val, ok := o.(*SliceType); ok {
-		return t.Element == val.Element
+		return t.Length == val.Length && t.Element == val.Element
 	}
 	return false
 }
