@@ -1,0 +1,23 @@
+extrn unit printf(string format, ...)
+
+unit print_arr([n]int arr) {
+    let i: int = 0;
+    if i < n {
+        printf("%d %d %d\n", arr[0], arr[1], arr[2]);
+    }
+}
+
+int main() {
+    let a: [3]int = [10, 20, 30];
+    print_arr(a);
+
+    let b: [3]int = 0;
+    b = [1, 2, 3];
+    print_arr(b);
+
+    let x: int = 5;
+    let c: [3]int = [x, x + 1, x * 2];
+    print_arr(c);
+
+    0
+}
