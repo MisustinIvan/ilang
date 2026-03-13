@@ -107,6 +107,14 @@ func (l *Lexer) Lex() ([]Token, error) {
 	for l.headInBounds() {
 		c := l.current()
 
+		// line comments
+		if c == '#' {
+			for l.current() != '\n' {
+				l.next()
+			}
+			continue
+		}
+
 		// whitespaces
 		if isWhitespace(c) {
 			l.next()

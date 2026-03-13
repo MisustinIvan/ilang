@@ -1,8 +1,9 @@
 # Formal grammar definition in EBNF
 
 ```ebnf
-program              ::= { declaration | external_declaration }
+program              ::= { declaration | external_declaration | comment }
 
+comment              ::= "#" { "*" } "\n"
 declaration          ::= basic_type identifier "(" [ function_argument { "," function_argument } ] ")" block
 external_declaration ::= "extrn" basic_type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
 function_argument    ::= type identifier
