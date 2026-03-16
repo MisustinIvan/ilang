@@ -1,0 +1,12 @@
+extrn unit printf(string format, ...)
+
+int main() {
+	let a: int = 10;
+	let b: int = 3;
+	let c: int = a << b;
+	printf("a: %d, b: %d, c: %d\n", a, b, c);
+	a = 16;
+	c = a >> b;
+	printf("a: %d, b: %d, c: %d\n", a, b, c);
+	0
+}

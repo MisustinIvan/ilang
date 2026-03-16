@@ -676,10 +676,12 @@ func (g *Generator) generateBinaryOperator(o ast.BinaryOperator) error {
 		g.writeln("movzbq %al, %rax")
 		return nil
 	case ast.ShiftLeft:
-		g.writeln("shl %rbx, %rax")
+		g.writeln("mov %rbx, %rcx")
+		g.writeln("shl %cl, %rax")
 		return nil
 	case ast.ShiftRight:
-		g.writeln("shr %rbx, %rax")
+		g.writeln("mov %rbx, %rcx")
+		g.writeln("sar %cl, %rax")
 		return nil
 	case ast.LogicAnd:
 		g.writeln("and %rbx, %rax")
