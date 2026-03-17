@@ -118,7 +118,9 @@ func (f *localFinder) VisitArgument(a *ast.Argument) error {
 	return nil
 }
 func (f *localFinder) VisitReturn(r *ast.Return) error {
-	r.Value.Accept(f)
+	if r.Value != nil {
+		return r.Value.Accept(f)
+	}
 	return nil
 }
 func (f *localFinder) VisitBind(b *ast.Bind) error {
