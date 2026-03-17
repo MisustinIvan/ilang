@@ -363,9 +363,6 @@ func (g *Generator) VisitReturn(r *ast.Return) error {
 func (g *Generator) VisitBind(b *ast.Bind) error {
 	g.writeln("# bind")
 	offset := g.ctx.locals[b.Identifier]
-	if err := b.Type.Accept(g); err != nil {
-		return err
-	}
 	switch t := b.Type.(type) {
 	case *ast.ArrayType:
 		if lit, ok := b.Value.(*ast.Literal); ok && lit.Value == "0" {
