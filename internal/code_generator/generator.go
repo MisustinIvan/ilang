@@ -21,17 +21,60 @@ type functionContext struct {
 }
 
 type Generator struct {
-	source      strings.Builder
-	prog        *ast.Program
-	ctx         *functionContext
-	externals   map[*ast.Identifier]bool
-	constants   map[string]*ast.Literal
-	label_count int
+	source     strings.Builder
+	prog       *ast.Program
+	ctx        *functionContext
+	externals  map[*ast.Identifier]bool
+	constants  map[string]*ast.Literal
+	labelCount int
 }
 
 func (g *Generator) label() string {
-	g.label_count++
-	return fmt.Sprintf(".label_%d", g.label_count)
+	g.labelCount++
+	return fmt.Sprintf(".label_%d", g.labelCount)
+}
+
+// loadScalar moves the local at offset into %rax.
+func (g *Generator) loadScalar(offset int) {
+	g.writefln("mov -%d(%%rbp), %%rax", offset)
+}
+
+// storeScalar writes %rax to the local at offset.
+func (g *Generator) storeScalar(offset int) {
+	g.writefln("mov %%rax, -%d(%%rbp)", offset)
+}
+
+// loadArrayAddr loads the address of the local array at offset into %rax.
+func (g *Generator) loadArrayAddr(offset int) {
+	g.writefln("lea -%d(%%rbp), %%rax", offset)
+}
+
+// loadSlice loads pointer to %rax and length to %rbx from the slice slot at offset.
+func (g *Generator) loadSlice(offset int) {
+	g.writefln("mov -%d(%%rbp), %%rax", offset)   // pointer
+	g.writefln("mov -%d(%%rbp), %%rbx", offset-8) // length
+}
+
+// storeSlice writes pointer in %rax and length in %rbx into the slice slot at offset.
+func (g *Generator) storeSlice(offset int) {
+	g.writefln("mov %%rax, -%d(%%rbp)", offset)   // pointer
+	g.writefln("mov %%rbx, -%d(%%rbp)", offset-8) // length
+}
+
+// zeroArray zeroes qwords*8 bytes starting at -offset(%rbp) using rep stosq.
+func (g *Generator) zeroArray(offset, qwords int) {
+	g.writeln("xor %rax, %rax")
+	g.writefln("mov $%d, %%rcx", qwords)
+	g.writefln("lea -%d(%%rbp), %%rdi", offset)
+	g.writeln("rep stosq")
+}
+
+// copyArray copies qwords*8 bytes from the address in %rax to -offset(%rbp).
+func (g *Generator) copyArray(offset, qwords int) {
+	g.writeln("mov %rax, %rsi")
+	g.writefln("lea -%d(%%rbp), %%rdi", offset)
+	g.writefln("mov $%d, %%rcx", qwords)
+	g.writeln("rep movsq")
 }
 
 type localFinder struct {
@@ -56,7 +99,6 @@ func (f *localFinder) VisitSliceType(t *ast.SliceType) error {
 }
 func (f *localFinder) VisitLiteral(l *ast.Literal) error       { return nil }
 func (f *localFinder) VisitIdentifier(i *ast.Identifier) error { return nil }
-
 func (f *localFinder) VisitDeclaration(d *ast.Declaration) error {
 	for _, arg := range d.Args {
 		arg.Accept(f)
@@ -64,52 +106,40 @@ func (f *localFinder) VisitDeclaration(d *ast.Declaration) error {
 	d.Body.Accept(f)
 	return nil
 }
-
 func (f *localFinder) VisitArgument(a *ast.Argument) error {
 	a.Type.Accept(f)
 	size := a.Type.Size()
 	_, isArray := a.Type.(*ast.ArrayType)
 	_, isSlice := a.Type.(*ast.SliceType)
 	if isArray || isSlice {
-		size = 16
+		size = 16 // (pointer, length)
 	}
 	f.declareLocal(size, a.Identifier)
 	return nil
 }
-
 func (f *localFinder) VisitReturn(r *ast.Return) error {
 	r.Value.Accept(f)
 	return nil
 }
-
 func (f *localFinder) VisitBind(b *ast.Bind) error {
-	b.Type.Accept(f) // for slice types with a length identifier
+	b.Type.Accept(f) // handles slice LengthIdentifier
 	f.declareLocal(b.Type.Size(), b.Identifier)
 	b.Value.Accept(f)
 	return nil
 }
-
 func (f *localFinder) VisitCall(c *ast.Call) error {
 	for _, arg := range c.Arguments {
 		arg.Accept(f)
 	}
 	return nil
 }
-
-func (f *localFinder) VisitSeparated(s *ast.Separated) error {
-	return s.Value.Accept(f)
-}
-
-func (f *localFinder) VisitUnary(u *ast.Unary) error {
-	return u.Value.Accept(f)
-}
-
+func (f *localFinder) VisitSeparated(s *ast.Separated) error { return s.Value.Accept(f) }
+func (f *localFinder) VisitUnary(u *ast.Unary) error         { return u.Value.Accept(f) }
 func (f *localFinder) VisitBinary(u *ast.Binary) error {
 	u.Left.Accept(f)
 	u.Right.Accept(f)
 	return nil
 }
-
 func (f *localFinder) VisitBlock(b *ast.Block) error {
 	for _, expr := range b.Body {
 		expr.Accept(f)
@@ -119,7 +149,6 @@ func (f *localFinder) VisitBlock(b *ast.Block) error {
 	}
 	return nil
 }
-
 func (f *localFinder) VisitCondition(c *ast.Condition) error {
 	c.Condition.Accept(f)
 	c.Body.Accept(f)
@@ -128,17 +157,14 @@ func (f *localFinder) VisitCondition(c *ast.Condition) error {
 	}
 	return nil
 }
-
 func (f *localFinder) VisitAssignment(a *ast.Assignment) error {
 	a.Value.Accept(f)
 	return nil
 }
-
 func (f *localFinder) VisitIndex(i *ast.Index) error {
 	i.Index.Accept(f)
 	return nil
 }
-
 func (f *localFinder) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	for _, val := range a.Values {
 		val.Accept(f)
@@ -148,21 +174,25 @@ func (f *localFinder) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 }
 
 func findLocals(d *ast.Declaration) (map[any]int, int) {
-	l := &localFinder{
-		stackOffset: 0,
-		locals:      map[any]int{},
-	}
-
+	l := &localFinder{locals: map[any]int{}}
 	d.Accept(l)
-
 	return l.locals, l.stackOffset
 }
 
-// newContext() creates a new function context containing all of the stack
-// offsets for the local variables and also the total stack offset of the function.
+func (g *Generator) writeln(s string)               { g.source.WriteString(s + "\n") }
+func (g *Generator) writefln(f string, args ...any) { g.writeln(fmt.Sprintf(f, args...)) }
+
+func New(prog *ast.Program) *Generator {
+	return &Generator{
+		prog:      prog,
+		externals: map[*ast.Identifier]bool{},
+		constants: map[string]*ast.Literal{},
+	}
+}
+
+// newContext creates a function context with pre-computed stack offsets.
 func (g *Generator) newContext(d *ast.Declaration) {
 	locals, stackOffset := findLocals(d)
-	// align the stack to 16 bytes
 	if stackOffset%16 != 0 {
 		stackOffset += 16 - (stackOffset % 16)
 	}
@@ -173,27 +203,11 @@ func (g *Generator) newContext(d *ast.Declaration) {
 	}
 }
 
-func (g *Generator) writeln(s string)               { g.source.WriteString(s + "\n") }
-func (g *Generator) writefln(f string, args ...any) { g.writeln(fmt.Sprintf(f, args...)) }
-
-func New(prog *ast.Program) *Generator {
-	return &Generator{
-		source:      strings.Builder{},
-		prog:        prog,
-		ctx:         nil,
-		externals:   map[*ast.Identifier]bool{},
-		constants:   map[string]*ast.Literal{},
-		label_count: 0,
-	}
-}
-
 func (g *Generator) Generate() (string, error) {
 	err := g.prog.Accept(g)
-
 	g.writeln("")
 	g.writeln("# data section")
 	g.writeln(".data")
-
 	for id, l := range g.constants {
 		switch {
 		case l.GetType().Equals(ast.BasicTypePtr(ast.String)):
@@ -203,58 +217,43 @@ func (g *Generator) Generate() (string, error) {
 			err = errors.Join(err, generatorError(l.Position, "can't generate constant of type %s", l.GetType().String()))
 		}
 	}
-
 	return g.source.String(), err
 }
 
-// programHeaders() generates program headers, expecting a there to be a `main`
-// function that is the entry point.
 func (g *Generator) programHeaders() {
 	g.writeln("# program headers")
 	g.writeln(".text")
 	g.writeln(".globl main\n")
 }
 
-// VisitProgram() generates code for the whole program, reporting any arrors
-// encountered along the way.
 func (g *Generator) VisitProgram(p *ast.Program) error {
 	var err error
 	g.programHeaders()
-
 	g.writeln("# external functions")
 	for _, decl := range p.ExternalDeclarations {
 		err = errors.Join(err, decl.Accept(g))
 	}
 	g.writeln("")
-
 	g.writeln("# function declarations")
 	for _, decl := range p.Declarations {
 		err = errors.Join(err, decl.Accept(g))
 	}
-
 	return err
 }
 
-// VisitExternalDeclaration() generates code for external function declarations
-// using the .extern directive.
 func (g *Generator) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	g.externals[d.Identifier] = true
 	g.writefln(".extern %s", d.Identifier.Name)
 	return nil
 }
 
-// generatePrologue() generates the function prologue. It creates a new stack
-// frame, allocating the required memory for local variables. It expectes
-// the g.ctx context to be non-nil and containing valid values.
-func (g *Generator) generatePrologue() error {
+func (g *Generator) generatePrologue() {
 	g.writeln("# function prologue")
 	g.writefln("%s:", g.ctx.currentDecl.Identifier.Name)
 	g.writeln("push %rbp")
 	g.writeln("mov %rsp, %rbp")
-	g.writeln("# locals stack allocation")
 	g.writefln("sub $%d, %%rsp", g.ctx.stackOffset)
 	g.writeln("")
-	return nil
 }
 
 func (g *Generator) generateEpilogue() {
@@ -268,21 +267,16 @@ func (g *Generator) VisitDeclaration(d *ast.Declaration) error {
 	var err error
 	g.newContext(d)
 	g.generatePrologue()
-
 	for _, arg := range d.Args {
 		err = errors.Join(err, arg.Accept(g))
 	}
 	g.writeln("")
-
 	err = errors.Join(err, d.Body.Accept(g))
-
 	g.generateEpilogue()
 	return err
 }
 
-// argLocation() returns the location of the nth function argument using the
-// x86_64 linux c calling conventions. In case of more than 6 arguments it
-// returns an error for now.
+// argLocation returns the register for the nth argument per the System V AMD64 ABI.
 func (g *Generator) argLocation(n int) (string, error) {
 	switch n {
 	case 0:
@@ -311,60 +305,48 @@ func (g *Generator) isArgument(id *ast.Identifier) bool {
 	return false
 }
 
-// VisitArgument() generates code to move the function argument from its
-// location in a register according to the linux x86_64 calling conventions to
-// a local variable in the function scope. It currently supports only up to
-// 6 arguments.
+// VisitArgument moves an incoming argument from its ABI register(s) to the stack.
+// Arrays and slices occupy two consecutive registers: (length, pointer).
 func (g *Generator) VisitArgument(a *ast.Argument) error {
 	offset := g.ctx.locals[a.Identifier]
-
 	switch t := a.Type.(type) {
 	case *ast.SliceType, *ast.ArrayType:
-		// Slices and arrays are passed as two 8-byte values: length and pointer
-		lenLocation, err := g.argLocation(g.ctx.argsGenerated)
+		lenReg, err := g.argLocation(g.ctx.argsGenerated)
 		g.ctx.argsGenerated++
 		if err != nil {
 			return err
 		}
-		ptrLocation, err := g.argLocation(g.ctx.argsGenerated)
+		ptrReg, err := g.argLocation(g.ctx.argsGenerated)
 		g.ctx.argsGenerated++
 		if err != nil {
 			return err
 		}
-
-		g.writeln("# move slice/array length and pointer to local")
-		g.writefln("mov %s, -%d(%%rbp)", lenLocation, offset-8)
-		g.writefln("mov %s, -%d(%%rbp)", ptrLocation, offset)
-
+		g.writefln("mov %s, -%d(%%rbp)", lenReg, offset-8) // length
+		g.writefln("mov %s, -%d(%%rbp)", ptrReg, offset)   // pointer
 		if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
 			lenOffset := g.ctx.locals[st.LengthIdentifier]
-			g.writefln("mov %s, -%d(%%rbp)", lenLocation, lenOffset)
+			g.writefln("mov %s, -%d(%%rbp)", lenReg, lenOffset)
 		}
-		return nil
-
 	default:
-		location, err := g.argLocation(g.ctx.argsGenerated)
+		reg, err := g.argLocation(g.ctx.argsGenerated)
 		g.ctx.argsGenerated++
 		if err != nil {
 			return err
 		}
-		g.writeln("# move function argument to local")
-		g.writefln("mov %s, -%d(%%rbp)", location, offset)
-		return nil
+		g.writefln("mov %s, -%d(%%rbp)", reg, offset)
 	}
+	return nil
 }
 
 func (g *Generator) VisitBasicType(t *ast.BasicType) error { return nil }
 func (g *Generator) VisitArrayType(t *ast.ArrayType) error { return nil }
 func (g *Generator) VisitSliceType(t *ast.SliceType) error { return nil }
 
-// VisitReturn() generates code to move the return value to %rax and then return
+// VisitReturn moves the return value to %rax (and %rbx for slices/arrays) and returns.
 func (g *Generator) VisitReturn(r *ast.Return) error {
-	g.writeln("# return expression")
+	g.writeln("# return")
 	if r.Value != nil {
-		g.writeln("# value")
-		err := r.Value.Accept(g)
-		if err != nil {
+		if err := r.Value.Accept(g); err != nil {
 			return err
 		}
 	} else {
@@ -375,84 +357,46 @@ func (g *Generator) VisitReturn(r *ast.Return) error {
 	return nil
 }
 
-// VisitBind() generates code to move the bound value to a local variable on
-// the stack.
+// VisitBind evaluates the right-hand value and stores it into the declared local.
+// The value protocol means slices and arrays always arrive as (%rax, %rbx),
+// so there is no need to inspect the value's type - only the declared binding type.
 func (g *Generator) VisitBind(b *ast.Bind) error {
-	g.writeln("# bind expression")
+	g.writeln("# bind")
 	offset := g.ctx.locals[b.Identifier]
-
-	err := b.Type.Accept(g)
-	if err != nil {
+	if err := b.Type.Accept(g); err != nil {
 		return err
 	}
-
 	switch t := b.Type.(type) {
 	case *ast.ArrayType:
-		if literal, isLiteral := b.Value.(*ast.Literal); isLiteral && literal.Value == "0" {
-			// Array zero-initialization
-			g.writeln("# array zero-initialization")
-			g.writeln("xor %rax, %rax")
-
-			count := (t.Size() + 7) / 8
-			g.writefln("mov $%d, %%rcx", count)
-			g.writefln("lea -%d(%%rbp), %%rdi", offset)
-			g.writeln("rep stosq")
-		} else if arrLiteral, ok := b.Value.(*ast.ArrayLiteral); ok {
-			// Array from literal
-			return g.generateArrayLiteralInit(arrLiteral, offset)
+		if lit, ok := b.Value.(*ast.Literal); ok && lit.Value == "0" {
+			g.writeln("# array zero-init")
+			g.zeroArray(offset, (t.Size()+7)/8)
+		} else if arrLit, ok := b.Value.(*ast.ArrayLiteral); ok {
+			return g.generateArrayLiteralInit(arrLit, offset)
 		} else {
-			// Assume its an array copy from another array that returns an address in %rax
+			// any expression yielding a pointer in %rax
 			if err := b.Value.Accept(g); err != nil {
 				return err
 			}
-			count := (t.Size() + 7) / 8
-			g.writeln("# array copy binding")
-			g.writeln("mov %rax, %rsi")
-			g.writefln("lea -%d(%%rbp), %%rdi", offset)
-			g.writefln("mov $%d, %%rcx", count)
-			g.writeln("rep movsq")
+			g.writeln("# array copy")
+			g.copyArray(offset, (t.Size()+7)/8)
 		}
 	case *ast.SliceType:
-		// Slice binding
-		valueIdentifier := b.Value.(*ast.Identifier).Resolved
-
-		// get slice length
-		switch t := b.Value.GetType().(type) {
-		case *ast.ArrayType:
-			// length from array
-			g.writefln("mov $%d, %%rax # length from array", t.Length)
-		case *ast.SliceType:
-			// length from slice
-			valOffset := g.ctx.locals[valueIdentifier]
-			g.writefln("mov -%d(%%rbp), %%rax # length from slice", valOffset-8)
-		default:
-			return generatorError(b.Value.GetPosition(), "expected array or slice type, got %v", b.Value.GetType())
+		if err := b.Value.Accept(g); err != nil {
+			return err
 		}
-
-		// store the length for the bound slice
-		g.writefln("mov %%rax, -%d(%%rbp)", offset-8)
-		// store value if bound slice has a length identifier
+		g.writeln("# slice bind")
+		g.storeSlice(offset)
 		if t.LengthIdentifier != nil {
 			lenOffset := g.ctx.locals[t.LengthIdentifier]
-			g.writefln("mov %%rax, -%d(%%rbp)", lenOffset)
+			g.writefln("mov %%rbx, -%d(%%rbp)", lenOffset)
 		}
-
-		// get pointer
-		if err := b.Value.Accept(g); err != nil {
-			return err
-		}
-		// store pointer
-		g.writefln("mov %%rax, -%d(%%rbp)", offset)
-
 	case *ast.BasicType:
-		g.writeln("# scalar value binding")
 		if err := b.Value.Accept(g); err != nil {
 			return err
 		}
-		// Expecting the bound value to be stored in %rax
-		g.writefln("mov %%rax, -%d(%%rbp)", offset)
+		g.storeScalar(offset)
 	}
-
 	return nil
 }
 
@@ -460,12 +404,12 @@ func (g *Generator) constLabel() string {
 	return fmt.Sprintf(".const_%d", len(g.constants))
 }
 
-// VisitLiteral() generates code of a literal value to be stored in %rax.
+// VisitLiteral generates a scalar literal, leaving the value in %rax.
 func (g *Generator) VisitLiteral(l *ast.Literal) error {
-	g.writefln("# literal expression of type %s", l.Type.String())
-	t, basicType := l.GetType().(*ast.BasicType)
-	if !basicType {
-		return generatorError(l.Position, "literals of non-basic type are not supported yet")
+	g.writefln("# literal (%s)", l.Type.String())
+	t, ok := l.GetType().(*ast.BasicType)
+	if !ok {
+		return generatorError(l.Position, "literals of non-basic type are not supported")
 	}
 	switch *t {
 	case ast.Int:
@@ -477,143 +421,105 @@ func (g *Generator) VisitLiteral(l *ast.Literal) error {
 		case "true":
 			g.writeln("mov $1, %rax")
 		default:
-			return generatorError(l.Position, "unknown boolean value")
+			return generatorError(l.Position, "unknown boolean literal %q", l.Value)
 		}
-
 	case ast.String:
 		label := g.constLabel()
 		g.constants[label] = l
 		g.writefln("lea %s(%%rip), %%rax", label)
 	case ast.Float:
-		return generatorError(l.Position, "floats are not supported yet")
-
+		return generatorError(l.Position, "float literals are not supported")
 	case ast.Unit:
 		g.writeln("mov $0, %rax")
-
 	case ast.Undefined:
 		return generatorError(l.Position, "literal of undefined type")
 	}
 	return nil
 }
 
-// VisitIdentifier() generates code to move the value stored in a local variable
-// on the stack to %rax.
+// VisitIdentifier evaluates an identifier per the value protocol:
+//
+//	BasicType -> scalar in %rax
+//	ArrayType -> pointer in %rax, length in %rbx
+//	SliceType -> pointer in %rax, length in %rbx
 func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
-	g.writeln("# identifier expression")
-
+	g.writeln("# identifier")
 	offset, exists := g.ctx.locals[i.Resolved]
 	if !exists {
-		return generatorError(i.Position, "unresolved identifier - \"%s\"", i.Name)
+		return generatorError(i.Position, "unresolved identifier %q", i.Name)
 	}
-
-	switch i.Resolved.GetType().(type) {
+	switch t := i.Resolved.GetType().(type) {
 	case *ast.ArrayType:
 		if g.isArgument(i.Resolved) {
-			g.writeln("# move pointer value of array argument to %rax")
-			g.writefln("mov -%d(%%rbp), %%rax", offset)
+			g.loadScalar(offset) // stored as a pointer when passed in
 		} else {
-			g.writeln("# move resolved address of array type to %rax")
-			g.writefln("lea -%d(%%rbp), %%rax", offset)
+			g.loadArrayAddr(offset)
 		}
+		g.writefln("mov $%d, %%rbx", t.Length)
 	case *ast.SliceType:
-		g.writeln("# move pointer value of slice type to %rax")
-		g.writefln("mov -%d(%%rbp), %%rax", offset)
+		g.loadSlice(offset)
 	case *ast.BasicType:
-		g.writeln("# move resolved value of simple type to %rax")
-		g.writefln("mov -%d(%%rbp), %%rax", offset)
+		g.loadScalar(offset)
 	}
-
 	return nil
 }
 
-// VisitCall() generates the code for calling functions. It first iterates through
-// all the function arguments, generates the code for their values and pushes them
-// to the stack to not be mangled in registers by other generated code...
-// Then it pops all the values to their registers according to the linux x86_64
-// calling conditions and calls the function either from the PLT for externals
-// or normally for user-defined functions.
+// VisitCall generates a function call using the System V AMD64 ABI.
+//
+// Arguments are evaluated and pushed to the stack so that register
+// allocations within each argument do not interfere with each other.
+// Arrays and slices each occupy two physical arguments: (length, pointer).
+// Once all values are on the stack they are popped into the correct registers
+// in reverse push order.
 func (g *Generator) VisitCall(c *ast.Call) error {
-	g.writeln("# call expression")
-
+	g.writeln("# call")
 	physicalArgCount := 0
-
-	g.writeln("# arguments")
 	for i, arg := range c.Arguments {
 		g.writefln("# argument %d", i)
-		switch t := arg.GetType().(type) {
+		switch arg.GetType().(type) {
 		case *ast.BasicType:
 			if err := arg.Accept(g); err != nil {
 				return err
 			}
-			g.writeln("push %rax # push argument of basic type")
-			physicalArgCount += 1
-		case *ast.ArrayType:
-			// arrays passed as slices - (length, pointer)
-			// get length
-			g.writefln("mov $%d, %%rax", t.Length)
-			g.writeln("push %rax # push array length")
-
-			// get pointer
+			g.writeln("push %rax")
+			physicalArgCount++
+		case *ast.ArrayType, *ast.SliceType:
+			// Accept yields pointer → %rax, length → %rbx.
+			// Push length first so it pops into the lower-numbered register.
 			if err := arg.Accept(g); err != nil {
 				return err
 			}
-			g.writeln("push %rax # push array pointer")
-
-			physicalArgCount += 2
-
-		case *ast.SliceType:
-			// slices passed as - (length, pointer)
-			if identifier, isIdentifier := arg.(*ast.Identifier); isIdentifier {
-				offset := g.ctx.locals[identifier.Resolved]
-				g.writefln("mov -%d(%%rbp), %%rax # length of slice", offset-8)
-				g.writeln("push %rax # push slice length")
-			} else {
-				return generatorError(arg.GetPosition(), "slices can be only passed as identifiers")
-			}
-
-			if err := arg.Accept(g); err != nil {
-				return err
-			}
-			g.writeln("push %rax # push slice pointer")
-
+			g.writeln("push %rbx # length")
+			g.writeln("push %rax # pointer")
 			physicalArgCount += 2
 		}
 	}
-
-	g.writeln("# clear %rax for variadic functions")
-	g.writeln("xor %rax, %rax")
-
+	g.writeln("xor %rax, %rax # clear for variadic functions")
 	for i := physicalArgCount - 1; i >= 0; i-- {
 		reg, err := g.argLocation(i)
 		if err != nil {
 			return err
 		}
-		g.writefln("pop %s # pop argument %d", reg, i)
+		g.writefln("pop %s", reg)
 	}
-
-	g.writeln("# call the function")
 	if g.externals[c.Identifier.Resolved] {
-		g.writefln("call %s @PLT", c.Identifier.Name)
+		g.writefln("call %s@PLT", c.Identifier.Name)
 	} else {
 		g.writefln("call %s", c.Identifier.Name)
 	}
-
 	return nil
 }
 
 func (g *Generator) VisitSeparated(s *ast.Separated) error {
-	g.writeln("# separated expression")
+	g.writeln("# separated")
 	return s.Value.Accept(g)
 }
 
-// VisitUnary() generates code for unary expression. It first generates code for
-// the value(stored in %rax) and then the code for the unary operator.
 func (g *Generator) VisitUnary(u *ast.Unary) error {
-	g.writeln("# unary expression")
+	g.writeln("# unary")
 	if err := u.Value.Accept(g); err != nil {
 		return err
 	}
-
 	switch u.Operator {
 	case ast.Inversion:
 		g.writeln("imul $-1, %rax")
@@ -624,288 +530,229 @@ func (g *Generator) VisitUnary(u *ast.Unary) error {
 	default:
 		return generatorError(u.Position, "unknown unary operator")
 	}
-
 	return nil
 }
 
-// generateBinaryOperator() Generates code for the given binary operator.
-// It expects the first operand to be in %rax and the second in %rbx.
+// generateBinaryOperator emits the instruction(s) for the given operator.
+// Expects: left operand in %rax, right operand in %rbx.
 func (g *Generator) generateBinaryOperator(o ast.BinaryOperator) error {
 	switch o {
 	case ast.Addition:
 		g.writeln("add %rbx, %rax")
-		return nil
 	case ast.Subtraction:
 		g.writeln("sub %rbx, %rax")
-		return nil
 	case ast.Multiplication:
 		g.writeln("imul %rbx, %rax")
-		return nil
 	case ast.Division:
 		g.writeln("cltd")
 		g.writeln("idiv %rbx")
-		return nil
 	case ast.Equality:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("sete %al")
 		g.writeln("movzbq %al, %rax")
-		return nil
 	case ast.Inequality:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("setne %al")
 		g.writeln("movzbq %al, %rax")
-		return nil
 	case ast.Less:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("setl %al")
 		g.writeln("movzbq %al, %rax")
-		return nil
 	case ast.Greater:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("setg %al")
 		g.writeln("movzbq %al, %rax")
-		return nil
 	case ast.LessEqual:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("setle %al")
 		g.writeln("movzbq %al, %rax")
-		return nil
 	case ast.GreaterEqual:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("setge %al")
 		g.writeln("movzbq %al, %rax")
-		return nil
 	case ast.ShiftLeft:
 		g.writeln("mov %rbx, %rcx")
 		g.writeln("shl %cl, %rax")
-		return nil
 	case ast.ShiftRight:
 		g.writeln("mov %rbx, %rcx")
 		g.writeln("sar %cl, %rax")
-		return nil
 	case ast.LogicAnd:
 		g.writeln("and %rbx, %rax")
-		return nil
 	case ast.LogicOr:
 		g.writeln("or %rbx, %rax")
-		return nil
 	default:
 		return fmt.Errorf("operator %s not implemented", o.String())
 	}
+	return nil
 }
 
-// VisitBinary() generates code for a binary expression. It generates code for
-// the two operands first, preserving expected order of execution by first
-// storing the first value on the stack and only then storing the second.
+// VisitBinary evaluates left to %rax (pushed), right to %rax (moved to %rbx),
+// pops left back to %rax, then applies the operator.
 func (g *Generator) VisitBinary(u *ast.Binary) error {
-	g.writeln("# binary expression")
-	g.writeln("# left")
+	g.writeln("# binary")
 	if err := u.Left.Accept(g); err != nil {
 		return err
 	}
 	g.writeln("push %rax")
-	g.writeln("# right")
 	if err := u.Right.Accept(g); err != nil {
 		return err
 	}
 	g.writeln("mov %rax, %rbx")
 	g.writeln("pop %rax")
-
-	g.writefln("# binary operator %s", u.Operator.String())
 	return g.generateBinaryOperator(u.Operator)
 }
 
-// VisitBlock() generates code for a block expression. It iterates through all
-// of the body expressions and generates their code. It also generates code for
-// the implicit return expression.
 func (g *Generator) VisitBlock(b *ast.Block) error {
-	g.writeln("# block expression")
+	g.writeln("# block")
 	for _, expr := range b.Body {
 		if err := expr.Accept(g); err != nil {
 			return err
 		}
 	}
-	g.writeln("# implicit return")
 	if b.ImplicitReturn != nil {
-		if err := b.ImplicitReturn.Accept(g); err != nil {
+		return b.ImplicitReturn.Accept(g)
+	}
+	g.writeln("mov $0, %rax")
+	return nil
+}
+
+func (g *Generator) VisitCondition(c *ast.Condition) error {
+	g.writeln("# condition")
+	ifLabel := g.label()
+	elseLabel := g.label()
+	endLabel := g.label()
+
+	if err := c.Condition.Accept(g); err != nil {
+		return err
+	}
+	g.writeln("cmp $1, %rax")
+	g.writefln("je %s", ifLabel)
+	if c.Else != nil {
+		g.writefln("jmp %s", elseLabel)
+	} else {
+		g.writefln("jmp %s", endLabel)
+	}
+	g.writefln("%s:", ifLabel)
+	if err := c.Body.Accept(g); err != nil {
+		return err
+	}
+	if c.Else != nil {
+		g.writefln("jmp %s", endLabel)
+		g.writefln("%s:", elseLabel)
+		if err := c.Else.Accept(g); err != nil {
 			return err
 		}
+	}
+	g.writefln("%s:", endLabel)
+	return nil
+}
+
+// containerLoad loads %rcx with the base address of the indexed container:
+// a pointer value for slices and array arguments, or an effective address
+// for locally-allocated arrays.
+func (g *Generator) containerLoad(id *ast.Identifier) error {
+	offset, exists := g.ctx.locals[id.Resolved]
+	if !exists {
+		return generatorError(id.Position, "unresolved identifier %q", id.Name)
+	}
+	_, isSlice := id.Resolved.GetType().(*ast.SliceType)
+	_, isArray := id.Resolved.GetType().(*ast.ArrayType)
+	if isSlice || (isArray && g.isArgument(id.Resolved)) {
+		g.writefln("mov -%d(%%rbp), %%rcx", offset)
 	} else {
-		g.writeln("mov $0, %rax")
+		g.writefln("lea -%d(%%rbp), %%rcx", offset)
 	}
 	return nil
 }
 
-// VisitCondition() generates code for a conditional expression.
-func (g *Generator) VisitCondition(c *ast.Condition) error {
-	g.writeln("# conditional expression")
-	if_label := g.label()
-	else_label := g.label()
-	end_label := g.label()
-
-	g.writeln("# condition")
-	c.Condition.Accept(g)
-	g.writeln("cmp $1, %rax")
-	g.writefln("je %s", if_label)
-	if c.Else != nil {
-		g.writefln("jmp %s", else_label)
-	} else {
-		g.writefln("jmp %s", end_label)
-	}
-
-	g.writeln("# if branch")
-	g.writeln(if_label + ":")
-	c.Body.Accept(g)
-
-	if c.Else != nil {
-		g.writefln("jmp %s", end_label)
-		g.writeln("# else branch")
-		g.writeln(else_label + ":")
-		c.Else.Accept(g)
-	}
-
-	g.writeln("# if end")
-	g.writeln(end_label + ":")
-
-	return nil
-}
-
-// VisitAssignment() generates code for assigning a value to a target.
-// It distinguishes between two types of assignment - to a scalar variable
-// and to an array.
+// VisitAssignment generates code for assigning a value to a scalar or indexed target.
 func (g *Generator) VisitAssignment(a *ast.Assignment) error {
-	g.writeln("# assignment expression")
-
+	g.writeln("# assignment")
 	switch target := a.Target.(type) {
 	case *ast.Identifier:
 		offset, exists := g.ctx.locals[target.Resolved]
 		if !exists {
-			return generatorError(target.Position, "unresolved identifier - \"%s\"", target.Name)
+			return generatorError(target.Position, "unresolved identifier %q", target.Name)
 		}
-
-		if arrayType, isArray := target.Resolved.GetType().(*ast.ArrayType); isArray {
-			if literal, ok := a.Value.(*ast.Literal); ok && literal.Value == "0" {
+		switch t := target.Resolved.GetType().(type) {
+		case *ast.ArrayType:
+			if lit, ok := a.Value.(*ast.Literal); ok && lit.Value == "0" {
 				g.writeln("# array zero-assignment")
-				g.writeln("xor %rax, %rax")
-				count := (arrayType.Size() + 7) / 8
-				g.writefln("mov $%d, %%rcx", count)
-				g.writefln("lea -%d(%%rbp), %%rdi", offset)
-				g.writeln("rep stosq")
-			} else if arrLiteral, ok := a.Value.(*ast.ArrayLiteral); ok {
-				return g.generateArrayLiteralInit(arrLiteral, offset)
+				g.zeroArray(offset, (t.Size()+7)/8)
+			} else if arrLit, ok := a.Value.(*ast.ArrayLiteral); ok {
+				return g.generateArrayLiteralInit(arrLit, offset)
 			} else {
 				if err := a.Value.Accept(g); err != nil {
 					return err
 				}
-				// assuming that the assignment was already type checked and that an address is in %rax
-				count := (arrayType.Size() + 7) / 8
 				g.writeln("# array copy assignment")
-				g.writeln("mov %rax, %rsi")
-				g.writefln("lea -%d(%%rbp), %%rdi", offset)
-				g.writefln("mov $%d, %%rcx", count)
-				g.writeln("rep movsq")
+				g.copyArray(offset, (t.Size()+7)/8)
 			}
-		} else {
+		default:
 			if err := a.Value.Accept(g); err != nil {
 				return err
 			}
-			// scalar assignment
-			g.writefln("mov %%rax, -%d(%%rbp)", offset)
+			g.storeScalar(offset)
 		}
 	case *ast.Index:
 		if err := a.Value.Accept(g); err != nil {
 			return err
 		}
 		g.writeln("push %rax") // save value
-
 		if err := target.Index.Accept(g); err != nil {
 			return err
 		}
 		g.writeln("push %rax") // save index
-
-		offset, exists := g.ctx.locals[target.Identifier.Resolved]
-		if !exists {
-			return generatorError(target.Identifier.Position, "unresolved identifier - \"%s\"", target.Identifier.Name)
+		if err := g.containerLoad(target.Identifier); err != nil {
+			return err
 		}
-
-		if _, isSlice := target.Identifier.Resolved.GetType().(*ast.SliceType); isSlice {
-			g.writefln("mov -%d(%%rbp), %%rcx", offset)
-		} else if _, isArray := target.Identifier.Resolved.GetType().(*ast.ArrayType); isArray && g.isArgument(target.Identifier.Resolved) {
-			g.writefln("mov -%d(%%rbp), %%rcx", offset)
-		} else {
-			g.writefln("lea -%d(%%rbp), %%rcx", offset)
-		}
-
-		elementSize := target.GetType().Size()
 		g.writeln("pop %rdx") // index
 		g.writeln("pop %rax") // value
-		g.writefln("mov %%rax, (%%rcx, %%rdx, %d)", elementSize)
+		g.writefln("mov %%rax, (%%rcx, %%rdx, %d)", target.GetType().Size())
 	default:
 		return generatorError(a.Position, "invalid assignment target")
 	}
-
 	return nil
 }
 
 func (g *Generator) generateArrayLiteralInit(a *ast.ArrayLiteral, baseOffset int) error {
-	g.writefln("# array literal initialization at offset %d", baseOffset)
-	elementType := a.Values[0].GetType()
-	elementSize := elementType.Size()
-
+	g.writefln("# array literal init at -%d(%%rbp)", baseOffset)
+	elementSize := a.Values[0].GetType().Size()
 	for i, val := range a.Values {
-		g.writefln("# element %d", i)
 		if err := val.Accept(g); err != nil {
 			return err
 		}
-		// Calculate offset for this element
-		elementOffset := baseOffset - (i * elementSize)
-		g.writefln("mov %%rax, -%d(%%rbp)", elementOffset)
+		g.writefln("mov %%rax, -%d(%%rbp)", baseOffset-(i*elementSize))
 	}
 	return nil
 }
 
+// VisitArrayLiteral writes the literal into its pre-allocated stack space and
+// returns pointer to %rax, element count to %rbx.
 func (g *Generator) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	offset, exists := g.ctx.locals[a]
 	if !exists {
 		return generatorError(a.Position, "anonymous array literal has no stack space")
 	}
-
-	err := g.generateArrayLiteralInit(a, offset)
-	if err != nil {
+	if err := g.generateArrayLiteralInit(a, offset); err != nil {
 		return err
 	}
-
-	// Return address of the literal in %rax
-	g.writefln("lea -%d(%%rbp), %%rax", offset)
+	g.loadArrayAddr(offset)
+	g.writefln("mov $%d, %%rbx", len(a.Values))
 	return nil
 }
 
-// VisitIndex() generates code for indexing an array as a value.
-// It generates the value for the index, storing the result in %rax
-// and using that as an offset for loading a value from the array base
-// offset to %rax.
+// VisitIndex generates an indexed load, leaving the element value in %rax.
 func (g *Generator) VisitIndex(i *ast.Index) error {
-	g.writeln("# index expression")
+	g.writeln("# index")
 	if err := i.Index.Accept(g); err != nil {
 		return err
 	}
 	g.writeln("push %rax")
-
-	offset, exists := g.ctx.locals[i.Identifier.Resolved]
-	if !exists {
-		return generatorError(i.Identifier.Position, "unresolved identifier - \"%s\"", i.Identifier.Name)
+	if err := g.containerLoad(i.Identifier); err != nil {
+		return err
 	}
-
-	if _, isSlice := i.Identifier.Resolved.GetType().(*ast.SliceType); isSlice {
-		g.writefln("mov -%d(%%rbp), %%rcx", offset)
-	} else if _, isArray := i.Identifier.Resolved.GetType().(*ast.ArrayType); isArray && g.isArgument(i.Identifier.Resolved) {
-		g.writefln("mov -%d(%%rbp), %%rcx", offset)
-	} else {
-		g.writefln("lea -%d(%%rbp), %%rcx", offset)
-	}
-
-	elementSize := i.GetType().Size()
 	g.writeln("pop %rdx")
-	g.writefln("mov (%%rcx, %%rdx, %d), %%rax", elementSize)
+	g.writefln("mov (%%rcx, %%rdx, %d), %%rax", i.GetType().Size())
 	return nil
 }
