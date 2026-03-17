@@ -357,11 +357,11 @@ type (
 	}
 )
 
-func (l *Literal) Accept(v Visitor) error    { return v.VisitLiteral(l) }
-func (i *Identifier) Accept(v Visitor) error { return v.VisitIdentifier(i) }
-func (c *Call) Accept(v Visitor) error       { return v.VisitCall(c) }
-func (s *Separated) Accept(v Visitor) error  { return v.VisitSeparated(s) }
-func (b *Block) Accept(v Visitor) error      { return v.VisitBlock(b) }
-func (c *Condition) Accept(v Visitor) error  { return v.VisitCondition(c) }
-func (c *Index) Accept(v Visitor) error      { return v.VisitIndex(c) }
+func (l *Literal) Accept(v Visitor) error      { return v.VisitLiteral(l) }
+func (i *Identifier) Accept(v Visitor) error   { return v.VisitIdentifier(i) }
+func (c *Call) Accept(v Visitor) error         { return v.VisitCall(c) }
+func (s *Separated) Accept(v Visitor) error    { return v.VisitSeparated(s) }
+func (b *Block) Accept(v Visitor) error        { return v.VisitBlock(b) }
+func (c *Condition) Accept(v Visitor) error    { return v.VisitCondition(c) }
+func (c *Index) Accept(v Visitor) error        { return v.VisitIndex(c) }
 func (a *ArrayLiteral) Accept(v Visitor) error { return v.VisitArrayLiteral(a) }
