@@ -1,0 +1,11 @@
+extrn unit printf(string format, ...)
+
+int test(int a, int b, int c, int d, int e, []int slice) {
+	slice[0]
+}
+
+unit main() {
+	let slice: [10]int = 0;
+	slice[0] = 69;
+	printf("slice[0] = %d\n", test(0,0,0,0,0,slice));
+}
