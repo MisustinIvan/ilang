@@ -278,23 +278,48 @@ func (g *Generator) VisitDeclaration(d *ast.Declaration) error {
 	return err
 }
 
-// argLocation returns the register for the nth argument per the System V AMD64 ABI.
-func (g *Generator) argLocation(n int) (string, error) {
+// storeNthArg expects the stored value in %rax. It stores it for according to
+// the System V AMD64 ABI.
+func (g *Generator) storeNthArg(n int) {
 	switch n {
 	case 0:
-		return "%rdi", nil
+		g.writeln("mov %rax, %rdi")
 	case 1:
-		return "%rsi", nil
+		g.writeln("mov %rax, %rsi")
 	case 2:
-		return "%rdx", nil
+		g.writeln("mov %rax, %rdx")
 	case 3:
-		return "%rcx", nil
+		g.writeln("mov %rax, %rcx")
 	case 4:
-		return "%r8", nil
+		g.writeln("mov %rax, %r8")
 	case 5:
-		return "%r9", nil
+		g.writeln("mov %rax, %r9")
 	default:
-		return "", generatorError(g.ctx.currentDecl.Identifier.Position, "can't use more than 6 arguments for now")
+		panic(fmt.Sprintf("storeNthArg called with stack slot %d", n))
+	}
+}
+
+// loadNthArg loads the n-th argument to a given local offset according to
+// the System V AMD64 ABI
+func (g *Generator) loadNthArg(n, offset int) {
+	switch n {
+	case 0:
+		g.writefln("mov %%rdi, -%d(%%rbp)", offset)
+	case 1:
+		g.writefln("mov %%rsi, -%d(%%rbp)", offset)
+	case 2:
+		g.writefln("mov %%rdx, -%d(%%rbp)", offset)
+	case 3:
+		g.writefln("mov %%rcx, -%d(%%rbp)", offset)
+	case 4:
+		g.writefln("mov %%r8, -%d(%%rbp)", offset)
+	case 5:
+		g.writefln("mov %%r9, -%d(%%rbp)", offset)
+	default:
+		// stack args sit at 16(%rbp), 24(%rbp), ... in the callee
+		stackOffset := 16 + (n-6)*8
+		g.writefln("mov %d(%%rbp), %%rax", stackOffset)
+		g.writefln("mov %%rax, -%d(%%rbp)", offset)
 	}
 }
 
@@ -308,34 +333,22 @@ func (g *Generator) isArgument(id *ast.Identifier) bool {
 }
 
 // VisitArgument moves an incoming argument from its ABI register(s) to the stack.
-// Arrays and slices occupy two consecutive registers: (length, pointer).
+// Arrays and slices occupy two consecutive registers/locations: (length, pointer).
 func (g *Generator) VisitArgument(a *ast.Argument) error {
 	offset := g.ctx.locals[a.Identifier]
 	switch t := a.Type.(type) {
 	case *ast.SliceType, *ast.ArrayType:
-		lenReg, err := g.argLocation(g.ctx.argsGenerated)
+		g.loadNthArg(g.ctx.argsGenerated, offset)
 		g.ctx.argsGenerated++
-		if err != nil {
-			return err
-		}
-		ptrReg, err := g.argLocation(g.ctx.argsGenerated)
+		g.loadNthArg(g.ctx.argsGenerated, offset-8)
 		g.ctx.argsGenerated++
-		if err != nil {
-			return err
-		}
-		g.writefln("mov %s, -%d(%%rbp)", lenReg, offset-8) // length
-		g.writefln("mov %s, -%d(%%rbp)", ptrReg, offset)   // pointer
 		if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
 			lenOffset := g.ctx.locals[st.LengthIdentifier]
-			g.writefln("mov %s, -%d(%%rbp)", lenReg, lenOffset)
+			g.loadNthArg(g.ctx.argsGenerated-1, lenOffset)
 		}
 	default:
-		reg, err := g.argLocation(g.ctx.argsGenerated)
+		g.loadNthArg(g.ctx.argsGenerated, offset)
 		g.ctx.argsGenerated++
-		if err != nil {
-			return err
-		}
-		g.writefln("mov %s, -%d(%%rbp)", reg, offset)
 	}
 	return nil
 }
@@ -472,8 +485,23 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 // in reverse push order.
 func (g *Generator) VisitCall(c *ast.Call) error {
 	g.writeln("# call")
+
+	// Count physical slots first
 	physicalArgCount := 0
-	for i, arg := range c.Arguments {
+	for _, arg := range c.Arguments {
+		switch arg.GetType().(type) {
+		case *ast.BasicType:
+			physicalArgCount++
+		case *ast.ArrayType, *ast.SliceType:
+			physicalArgCount += 2
+		default:
+			return generatorError(arg.GetPosition(), "unsupported argument type %s", arg.GetType().String())
+		}
+	}
+
+	// Evaluate right to left so slot 0 ends up on top
+	for i := len(c.Arguments) - 1; i >= 0; i-- {
+		arg := c.Arguments[i]
 		g.writefln("# argument %d", i)
 		switch arg.GetType().(type) {
 		case *ast.BasicType:
@@ -481,30 +509,32 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 				return err
 			}
 			g.writeln("push %rax")
-			physicalArgCount++
 		case *ast.ArrayType, *ast.SliceType:
-			// Accept yields pointer → %rax, length → %rbx.
-			// Push length first so it pops into the lower-numbered register.
 			if err := arg.Accept(g); err != nil {
 				return err
 			}
-			g.writeln("push %rbx # length")
-			g.writeln("push %rax # pointer")
-			physicalArgCount += 2
+			g.writeln("push %rbx # length")  // higher slot means deeper
+			g.writeln("push %rax # pointer") // lower slot means on top
 		}
 	}
+
 	g.writeln("xor %rax, %rax # clear for variadic functions")
-	for i := physicalArgCount - 1; i >= 0; i-- {
-		reg, err := g.argLocation(i)
-		if err != nil {
-			return err
-		}
-		g.writefln("pop %s", reg)
+
+	// Pop the register args in order - stack args stay exactly where they are
+	regArgCount := min(physicalArgCount, 6)
+	for i := range regArgCount {
+		g.writeln("pop %rax")
+		g.storeNthArg(i)
 	}
+
 	if g.externals[c.Identifier.Resolved] {
 		g.writefln("call %s@PLT", c.Identifier.Name)
 	} else {
 		g.writefln("call %s", c.Identifier.Name)
+	}
+
+	if physicalArgCount > 6 {
+		g.writefln("add $%d, %%rsp", (physicalArgCount-6)*8)
 	}
 	return nil
 }
