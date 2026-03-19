@@ -16,6 +16,7 @@ type (
 		VisitBasicType(t *BasicType) error
 		VisitArrayType(t *ArrayType) error
 		VisitSliceType(t *SliceType) error
+		VisitPointerType(t *PointerType) error
 		VisitReturn(r *Return) error
 		VisitBind(b *Bind) error
 		VisitLiteral(l *Literal) error
@@ -29,6 +30,7 @@ type (
 		VisitIndex(i *Index) error
 		VisitAssignment(a *Assignment) error
 		VisitArrayLiteral(a *ArrayLiteral) error
+		VisitDereference(d *Dereference) error
 	}
 
 	Node interface{ Accept(Visitor) error }
@@ -158,6 +160,29 @@ func (t *SliceType) Equals(o Type) bool {
 	}
 	if val, ok := o.(*SliceType); ok {
 		return t.Element == val.Element
+	}
+	return false
+}
+
+type PointerType struct {
+	Inner BasicType
+}
+
+func (t *PointerType) Size() int {
+	return 8
+}
+
+func (t *PointerType) String() string {
+	return fmt.Sprintf("^%s", t.Inner.String())
+}
+
+func (t *PointerType) Accept(v Visitor) error {
+	return v.VisitPointerType(t)
+}
+
+func (t *PointerType) Equals(o Type) bool {
+	if pointerType, ok := o.(*PointerType); ok {
+		return pointerType.Equals(&t.Inner)
 	}
 	return false
 }
@@ -355,6 +380,10 @@ type (
 		PrimaryBase
 		Values []Value
 	}
+	Dereference struct {
+		PrimaryBase
+		Value *Identifier
+	}
 )
 
 func (l *Literal) Accept(v Visitor) error      { return v.VisitLiteral(l) }
@@ -365,3 +394,4 @@ func (b *Block) Accept(v Visitor) error        { return v.VisitBlock(b) }
 func (c *Condition) Accept(v Visitor) error    { return v.VisitCondition(c) }
 func (c *Index) Accept(v Visitor) error        { return v.VisitIndex(c) }
 func (a *ArrayLiteral) Accept(v Visitor) error { return v.VisitArrayLiteral(a) }
+func (d *Dereference) Accept(v Visitor) error  { return v.VisitDereference(d) }
