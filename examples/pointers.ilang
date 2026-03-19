@@ -1,0 +1,19 @@
+extrn int scanf(string format, ...)
+extrn int printf(string format, ...)
+
+int main() {
+	let a: int = 10;
+	let b: ^int = ^a;
+
+	printf("a = %d\n", a);
+
+	@b = 69;
+
+	printf("a = %d\n", a);
+
+	let c: int = 420;
+
+	b = ^c;
+
+	printf("a = %d\n", a);
+}
