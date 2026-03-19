@@ -21,7 +21,8 @@ value                ::= primary
 
 return               ::= "return" value
 bind                 ::= "let" identifier ":" type "=" value
-assignment           ::= identifier | index "=" value
+assignment           ::= identifier | index | deref "=" value
+deref                ::= "@" identifier
 
 binary               ::= primary binary_operator value
 unary                ::= unary_operator primary
@@ -57,13 +58,14 @@ float_literal        ::= digit { digit } "." { digit }
 string_literal       ::= "\"" { * } "\""
 bool_literal         ::= "true" | "false"
 
-type                 ::= basic_type | array_type | slice_type
+type                 ::= basic_type | array_type | slice_type | pointer_type
 array_type           ::= "[" int_literal "]" basic_type
 slice_type           ::= "[" [identifier] "]" basic_type
 basic_type           ::= "int" | "bool" | "float" | "string" | "unit"
+pointer_type         ::= "^" basic_type
 
 binary_operator      ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "<<" | ">>" | "&&" | "||"
-unary_operator       ::= "-" | "!"
+unary_operator       ::= "-" | "!" | "^" | "@"
 
 letter               ::= "a" | ... | "z" | "A" | ... | "Z" | "_"
 digit                ::= "0" | ... | "9"
