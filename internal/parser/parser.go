@@ -338,6 +338,8 @@ func (p *Parser) ParseExpression() (ast.Expression, error) {
 	case p.matchCurrent(lexer.Keyword, lexer.KeywordLet):
 		return p.ParseBind()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Operator, "=", 1):
+		fallthrough
+	case p.matchCurrent(lexer.Operator, "@") && p.matchNext(lexer.Identifier, "", 1):
 		return p.ParseAssignment()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Punctuator, "[", 1):
 		idx, err := p.ParseIndex()
@@ -439,17 +441,49 @@ func (p *Parser) ParseBind() (*ast.Bind, error) {
 	return bind, nil
 }
 
-// ParseAssignment parses an assignment expression according to the grammar:
-// (without the index, just the identifier)
+// ParseDereference parses a dereference according to the grammar:
 //
-// assignment           ::= identifier | index "=" value
-func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
+// deref                ::= "@" identifier
+func (p *Parser) ParseDereference() (*ast.Dereference, error) {
+	if _, err := p.Expect(lexer.Operator, "@"); err != nil {
+		return nil, err
+	}
+
 	Identifier, err := p.ParseIdentifier()
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = p.Expect(lexer.Operator, "=")
+	deref := &ast.Dereference{
+		Value: Identifier,
+	}
+	deref.SetPosition(Identifier.GetPosition())
+
+	return deref, nil
+}
+
+// ParseAssignment parses an assignment expression according to the grammar:
+// (without the index, just the identifier)
+//
+// assignment           ::= identifier | index | deref "=" value
+func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
+	var target ast.Primary
+
+	if p.matchCurrent(lexer.Operator, "@") {
+		deref, err := p.ParseDereference()
+		if err != nil {
+			return nil, err
+		}
+		target = deref
+	} else {
+		id, err := p.ParseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+		target = id
+	}
+
+	_, err := p.Expect(lexer.Operator, "=")
 	if err != nil {
 		return nil, err
 	}
@@ -460,10 +494,10 @@ func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
 	}
 
 	assignment := &ast.Assignment{
-		Target: Identifier,
+		Target: target,
 		Value:  Value,
 	}
-	assignment.SetPosition(Identifier.Position)
+	assignment.SetPosition(target.GetPosition())
 
 	return assignment, nil
 }
@@ -817,10 +851,19 @@ func (p *Parser) ParseFunctionArgument() (*ast.Argument, error) {
 
 // ParseType parses a type according to the grammar:
 //
-// type                 ::= basic_type | array_type | slice_type
+// type                 ::= basic_type | array_type | slice_type | pointer_type
 func (p *Parser) ParseType() (ast.Type, error) {
 	if p.matchCurrent(lexer.Punctuator, "[") {
 		return p.ParseBracketedType()
+	} else if p.matchCurrent(lexer.Operator, "^") {
+		p.next()
+		t, err := p.ParseBasicType()
+		if err != nil {
+			return nil, err
+		}
+		return &ast.PointerType{
+			Inner: t,
+		}, nil
 	} else if p.matchCurrent(lexer.Identifier, "") {
 		return p.ParseBasicType()
 	}
