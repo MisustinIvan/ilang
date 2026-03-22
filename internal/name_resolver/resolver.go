@@ -188,6 +188,10 @@ func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
 	return errors.Join(a.Target.Accept(r), a.Value.Accept(r))
 }
 
+func (r *Resolver) VisitDereference(d *ast.Dereference) error {
+	return d.Value.Accept(r)
+}
+
 func (r *Resolver) VisitIndex(i *ast.Index) error {
 	return errors.Join(i.Identifier.Accept(r), i.Index.Accept(r))
 }
@@ -200,8 +204,9 @@ func (r *Resolver) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	return err
 }
 
-func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
-func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
+func (r *Resolver) VisitBasicType(t *ast.BasicType) error     { return nil }
+func (r *Resolver) VisitArrayType(t *ast.ArrayType) error     { return nil }
+func (r *Resolver) VisitPointerType(t *ast.PointerType) error { return nil }
 func (r *Resolver) VisitSliceType(t *ast.SliceType) error {
 	if t.LengthIdentifier != nil {
 		return r.Declare(t.LengthIdentifier)
