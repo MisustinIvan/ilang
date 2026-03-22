@@ -165,7 +165,7 @@ func (t *SliceType) Equals(o Type) bool {
 }
 
 type PointerType struct {
-	Inner BasicType
+	Inner *BasicType
 }
 
 func (t *PointerType) Size() int {
@@ -182,7 +182,7 @@ func (t *PointerType) Accept(v Visitor) error {
 
 func (t *PointerType) Equals(o Type) bool {
 	if pointerType, ok := o.(*PointerType); ok {
-		return pointerType.Equals(&t.Inner)
+		return pointerType.Equals(t.Inner)
 	}
 	return false
 }
@@ -258,11 +258,13 @@ type UnaryOperator int
 const (
 	Inversion UnaryOperator = iota
 	LogicNegation
+	AddressOf
 )
 
 var UnaryOperatorTokens = map[string]UnaryOperator{
 	"-": Inversion,
 	"!": LogicNegation,
+	"^": AddressOf,
 }
 
 var UnaryOperatorApplies = map[UnaryOperator]map[BasicType]bool{
