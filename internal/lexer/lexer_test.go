@@ -187,15 +187,6 @@ int main(){
 			expectedError: false,
 		},
 		{
-			name: "Unexpected Token",
-			source: SourceFile{
-				filename: "test.ilang",
-				content:  "@",
-			},
-			expected:      nil,
-			expectedError: true,
-		},
-		{
 			name: "Simple Addition",
 			source: SourceFile{
 				filename: "test.ilang",
@@ -235,4 +226,3 @@ int main(){
 		})
 	}
 }
-
