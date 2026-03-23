@@ -69,8 +69,9 @@ func (r *Resolver) VisitArgument(a *ast.Argument) error {
 	return nil
 }
 
-func (r *Resolver) VisitBasicType(t *ast.BasicType) error { return nil }
-func (r *Resolver) VisitArrayType(t *ast.ArrayType) error { return nil }
+func (r *Resolver) VisitBasicType(t *ast.BasicType) error     { return nil }
+func (r *Resolver) VisitArrayType(t *ast.ArrayType) error     { return nil }
+func (r *Resolver) VisitPointerType(t *ast.PointerType) error { return nil }
 func (r *Resolver) VisitSliceType(t *ast.SliceType) error {
 	if t.LengthIdentifier != nil {
 		t.LengthIdentifier.SetType(ast.BasicTypePtr(ast.Int))
@@ -153,7 +154,20 @@ func (r *Resolver) VisitSeparated(s *ast.Separated) error {
 
 func (r *Resolver) VisitUnary(u *ast.Unary) error {
 	err := u.Value.Accept(r)
-	u.SetType(u.Value.GetType())
+
+	if u.Operator == ast.AddressOf {
+		inner, ok := u.Value.GetType().(*ast.BasicType)
+		if !ok {
+			return fmt.Errorf("can't take address of %s, only of basic types at %s", u.Value.GetType().String(), u.GetPosition().String())
+		}
+
+		u.SetType(&ast.PointerType{
+			Inner: inner,
+		})
+	} else {
+		u.SetType(u.Value.GetType())
+	}
+
 	return err
 }
 
@@ -207,6 +221,15 @@ func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
 	a.SetType(a.Target.GetType())
 
 	return err
+}
+
+func (r *Resolver) VisitDereference(d *ast.Dereference) error {
+	if pointerType, ok := d.Value.GetType().(*ast.PointerType); ok {
+		d.SetType(pointerType.Inner)
+		return nil
+	} else {
+		return fmt.Errorf("can only dereference pointer types")
+	}
 }
 
 func (r *Resolver) VisitArrayLiteral(a *ast.ArrayLiteral) error {
