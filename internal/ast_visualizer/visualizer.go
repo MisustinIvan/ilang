@@ -1,6 +1,7 @@
 package ast_visualizer
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -201,6 +202,12 @@ func (v *AstVisualizer) VisitSliceType(t *ast.SliceType) error {
 	return nil
 }
 
+func (v *AstVisualizer) VisitPointerType(t *ast.PointerType) error {
+	v.WriteNode("PointerType", none)
+	defer v.Pop()
+	return t.Inner.Accept(v)
+}
+
 func (v *AstVisualizer) VisitReturn(r *ast.Return) error {
 	v.WriteNode("Return", none)
 	defer v.Pop()
@@ -334,6 +341,13 @@ func (v *AstVisualizer) VisitAssignment(a *ast.Assignment) error {
 		return err
 	}
 	return a.Value.Accept(v)
+}
+
+func (v *AstVisualizer) VisitDereference(d *ast.Dereference) error {
+	v.WriteNode("Dereference", none)
+	defer v.Pop()
+	err := d.GetType().Accept(v)
+	return errors.Join(err, d.Value.Accept(v))
 }
 
 func (v *AstVisualizer) VisitArrayLiteral(a *ast.ArrayLiteral) error {
