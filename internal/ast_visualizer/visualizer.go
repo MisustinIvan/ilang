@@ -350,6 +350,18 @@ func (v *AstVisualizer) VisitDereference(d *ast.Dereference) error {
 	return errors.Join(err, d.Value.Accept(v))
 }
 
+func (v *AstVisualizer) VisitLoop(l *ast.Loop) error {
+	v.WriteNode("Loop", none)
+	defer v.Pop()
+
+	v.WriteNode("Condition", none)
+	err := l.Condition.Accept(v)
+	v.Pop()
+
+	v.WriteNode("Body", none)
+	return errors.Join(err, l.Body.Accept(v))
+}
+
 func (v *AstVisualizer) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	v.WriteNode("ArrayLiteral", none)
 	defer v.Pop()
