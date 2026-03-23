@@ -580,9 +580,39 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 		return p.ParseCondition()
 	case p.matchCurrent(lexer.Punctuator, "["):
 		return p.ParseArrayLiteral()
+	case p.matchCurrent(lexer.Keyword, lexer.KeywordFor):
+		return p.ParseLoop()
 	default:
 		return nil, fmt.Errorf("unexpected primary expression")
 	}
+}
+
+// ParseLoop parses a loop according to the grammar:
+//
+// loop                 ::= "for" value block
+func (p *Parser) ParseLoop() (*ast.Loop, error) {
+	forToken, err := p.Expect(lexer.Keyword, lexer.KeywordFor)
+	if err != nil {
+		return nil, err
+	}
+
+	Value, err := p.ParseValue()
+	if err != nil {
+		return nil, err
+	}
+
+	Block, err := p.ParseBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	Loop := &ast.Loop{
+		Condition: Value,
+		Body:      Block,
+	}
+	Loop.SetPosition(forToken.Position)
+
+	return Loop, nil
 }
 
 // ParseArrayLiteral parses an array literal according to the grammar:
