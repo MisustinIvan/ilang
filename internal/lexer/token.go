@@ -40,6 +40,7 @@ const KeywordIf = "if"
 const KeywordElse = "else"
 const KeywordReturn = "return"
 const KeywordExtrn = "extrn"
+const KeywordFor = "for"
 
 var KeywordTokens = map[string]bool{
 	KeywordLet:    true,
@@ -47,6 +48,7 @@ var KeywordTokens = map[string]bool{
 	KeywordElse:   true,
 	KeywordReturn: true,
 	KeywordExtrn:  true,
+	KeywordFor:    true,
 }
 
 var PunctuatorTokens = map[string]bool{
