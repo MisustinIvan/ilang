@@ -37,6 +37,9 @@ primary              ::= literal
                        | condition
                        | index
                        | deref
+                       | loop
+
+loop                 ::= "for" value block
 
 literal              ::= basic_literal
                        | array_literal
