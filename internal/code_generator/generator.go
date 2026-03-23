@@ -796,17 +796,21 @@ func (g *Generator) VisitLoop(l *ast.Loop) error {
 	startLabel := g.label()
 	endLabel := g.label()
 
+	g.writeln("mov $0, %rax") // default if body never runs
 	g.writefln("%s:", startLabel)
+	g.writeln("push %rax") // save last result before condition clobbers it
 	if err := l.Condition.Accept(g); err != nil {
 		return err
 	}
 	g.writeln("cmp $1, %rax")
-	g.writefln("jne %s", endLabel)
+	g.writefln("jne %s", endLabel) // exit with saved value on stack
+	g.writeln("pop %rax")          // discard saved - body will produce new value
 	if err := l.Body.Accept(g); err != nil {
 		return err
 	}
 	g.writefln("jmp %s", startLabel)
 	g.writefln("%s:", endLabel)
+	g.writeln("pop %rax") // restore last body result (or 0 for no iterations)
 	return nil
 }
 
