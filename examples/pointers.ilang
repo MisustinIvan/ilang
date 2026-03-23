@@ -16,4 +16,6 @@ int main() {
 	b = ^c;
 
 	printf("a = %d\n", a);
+
+	0
 }
