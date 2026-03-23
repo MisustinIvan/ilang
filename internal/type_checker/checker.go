@@ -77,6 +77,7 @@ func (c *Checker) VisitArgument(a *ast.Argument) error                       { r
 func (c *Checker) VisitBasicType(t *ast.BasicType) error                     { return nil }
 func (c *Checker) VisitArrayType(t *ast.ArrayType) error                     { return nil }
 func (c *Checker) VisitSliceType(t *ast.SliceType) error                     { return nil }
+func (c *Checker) VisitPointerType(t *ast.PointerType) error                 { return nil }
 func (c *Checker) VisitReturn(e *ast.Return) error                           { return e.Value.Accept(c) }
 func (c *Checker) VisitBind(b *ast.Bind) error {
 	var err error
@@ -223,6 +224,13 @@ func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 	}
 
 	return err
+}
+
+func (c *Checker) VisitDereference(d *ast.Dereference) error {
+	if _, ok := d.GetType().(*ast.BasicType); !ok {
+		return fmt.Errorf("can only dereference basic types")
+	}
+	return nil
 }
 
 func (c *Checker) VisitArrayLiteral(a *ast.ArrayLiteral) error {
