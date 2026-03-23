@@ -128,7 +128,7 @@ func (p *Parser) Expect(kind lexer.TokenKind, value string) (*lexer.Token, error
 //
 // external_declaration ::= "extrn" basic_type identifier "(" [ function_argument { "," function_argument } ["," "..."] ] | "..." ")"
 func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
-	var Type *ast.BasicType
+	var Type ast.Type
 	var Identifier *ast.Identifier
 	var Arguments []ast.Argument
 	var Variadic = false
@@ -140,7 +140,7 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	}
 
 	// parse type
-	Type, err = p.ParseBasicType()
+	Type, err = p.ParseType()
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (p *Parser) ParseExternalDeclaration() (*ast.ExternalDeclaration, error) {
 	}
 
 	decl := &ast.ExternalDeclaration{
-		Type:       *Type,
+		Type:       Type,
 		Identifier: Identifier,
 		Args:       Arguments,
 		Variadic:   Variadic,
@@ -508,7 +508,7 @@ func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
 //	                       | binary
 //	                       | unary
 func (p *Parser) ParseValue() (ast.Value, error) {
-	if p.matchCurrent(lexer.Operator, "") {
+	if p.matchCurrent(lexer.Operator, "") && !p.matchCurrent(lexer.Operator, "@") {
 		return p.ParseUnary()
 	}
 
@@ -559,8 +559,11 @@ func (p *Parser) parseBinary(left ast.Primary) (ast.Value, error) {
 //	                       | block
 //	                       | condition
 //	                       | index
+//	                       | deref
 func (p *Parser) ParsePrimary() (ast.Primary, error) {
 	switch {
+	case p.matchCurrent(lexer.Operator, "@"):
+		return p.ParseDereference()
 	case p.matchCurrent(lexer.Literal, ""):
 		return p.ParseLiteral()
 	case p.matchCurrent(lexer.Identifier, "") && p.matchNext(lexer.Punctuator, "(", 1):

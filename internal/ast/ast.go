@@ -50,7 +50,7 @@ type (
 	}
 
 	ExternalDeclaration struct {
-		Type       BasicType
+		Type       Type
 		Identifier *Identifier
 		Args       []Argument
 		Variadic   bool

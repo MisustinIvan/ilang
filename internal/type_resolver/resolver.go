@@ -54,7 +54,7 @@ func (r *Resolver) VisitDeclaration(d *ast.Declaration) error {
 
 func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	var err error
-	d.Identifier.SetType(&d.Type)
+	d.Identifier.SetType(d.Type)
 
 	for _, arg := range d.Args {
 		err = errors.Join(arg.Accept(r))

@@ -36,6 +36,7 @@ primary              ::= literal
                        | block
                        | condition
                        | index
+                       | deref
 
 literal              ::= basic_literal
                        | array_literal

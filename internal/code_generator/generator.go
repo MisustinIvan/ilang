@@ -91,6 +91,7 @@ func (f *localFinder) VisitProgram(p *ast.Program) error                        
 func (f *localFinder) VisitExternalDeclaration(d *ast.ExternalDeclaration) error { return nil }
 func (f *localFinder) VisitBasicType(t *ast.BasicType) error                     { return nil }
 func (f *localFinder) VisitArrayType(t *ast.ArrayType) error                     { return nil }
+func (f *localFinder) VisitPointerType(t *ast.PointerType) error                 { return nil }
 func (f *localFinder) VisitSliceType(t *ast.SliceType) error {
 	if t.LengthIdentifier != nil {
 		f.declareLocal(8, t.LengthIdentifier)
@@ -162,6 +163,9 @@ func (f *localFinder) VisitCondition(c *ast.Condition) error {
 func (f *localFinder) VisitAssignment(a *ast.Assignment) error {
 	a.Value.Accept(f)
 	return nil
+}
+func (f *localFinder) VisitDereference(d *ast.Dereference) error {
+	return d.Value.Accept(f)
 }
 func (f *localFinder) VisitIndex(i *ast.Index) error {
 	i.Index.Accept(f)
@@ -353,9 +357,10 @@ func (g *Generator) VisitArgument(a *ast.Argument) error {
 	return nil
 }
 
-func (g *Generator) VisitBasicType(t *ast.BasicType) error { return nil }
-func (g *Generator) VisitArrayType(t *ast.ArrayType) error { return nil }
-func (g *Generator) VisitSliceType(t *ast.SliceType) error { return nil }
+func (g *Generator) VisitBasicType(t *ast.BasicType) error     { return nil }
+func (g *Generator) VisitArrayType(t *ast.ArrayType) error     { return nil }
+func (g *Generator) VisitSliceType(t *ast.SliceType) error     { return nil }
+func (g *Generator) VisitPointerType(t *ast.PointerType) error { return nil }
 
 // VisitReturn moves the return value to %rax (and %rbx for slices/arrays) and returns.
 func (g *Generator) VisitReturn(r *ast.Return) error {
@@ -408,6 +413,13 @@ func (g *Generator) VisitBind(b *ast.Bind) error {
 			return err
 		}
 		g.storeScalar(offset)
+	case *ast.PointerType:
+		if err := b.Value.Accept(g); err != nil {
+			return err
+		}
+		g.storeScalar(offset)
+	default:
+		panic("unexpected expression")
 	}
 	return nil
 }
@@ -472,6 +484,8 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 		g.loadSlice(offset)
 	case *ast.BasicType:
 		g.loadScalar(offset)
+	case *ast.PointerType:
+		g.loadScalar(offset)
 	}
 	return nil
 }
@@ -490,7 +504,7 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 	physicalArgCount := 0
 	for _, arg := range c.Arguments {
 		switch arg.GetType().(type) {
-		case *ast.BasicType:
+		case *ast.BasicType, *ast.PointerType:
 			physicalArgCount++
 		case *ast.ArrayType, *ast.SliceType:
 			physicalArgCount += 2
@@ -504,7 +518,7 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 		arg := c.Arguments[i]
 		g.writefln("# argument %d", i)
 		switch arg.GetType().(type) {
-		case *ast.BasicType:
+		case *ast.BasicType, *ast.PointerType:
 			if err := arg.Accept(g); err != nil {
 				return err
 			}
@@ -546,6 +560,14 @@ func (g *Generator) VisitSeparated(s *ast.Separated) error {
 
 func (g *Generator) VisitUnary(u *ast.Unary) error {
 	g.writeln("# unary")
+
+	if u.Operator == ast.AddressOf {
+		id := u.Value.(*ast.Identifier)
+		offset := g.ctx.locals[id.Resolved] // identifier already resolved
+		g.writefln("lea -%d(%%rbp), %%rax", offset)
+		return nil
+	}
+
 	if err := u.Value.Accept(g); err != nil {
 		return err
 	}
@@ -738,9 +760,31 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		g.writeln("pop %rdx") // index
 		g.writeln("pop %rax") // value
 		g.writefln("mov %%rax, (%%rcx, %%rdx, %d)", target.GetType().Size())
+	case *ast.Dereference:
+		// evaluate value
+		if err := a.Value.Accept(g); err != nil {
+			return err
+		}
+		// save scalar value
+		g.writeln("push %rax")
+		// evaluate pointer to %rax
+		if err := target.Value.Accept(g); err != nil {
+			return err
+		}
+		g.writeln("pop %rbx")
+		g.writeln("mov %rbx, (%rax)")
+
 	default:
 		return generatorError(a.Position, "invalid assignment target")
 	}
+	return nil
+}
+
+func (g *Generator) VisitDereference(d *ast.Dereference) error {
+	if err := d.Value.Accept(g); err != nil {
+		return err
+	}
+	g.writeln("mov (%rax), %rax")
 	return nil
 }
 
