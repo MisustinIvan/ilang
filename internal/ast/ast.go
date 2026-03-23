@@ -31,6 +31,7 @@ type (
 		VisitAssignment(a *Assignment) error
 		VisitArrayLiteral(a *ArrayLiteral) error
 		VisitDereference(d *Dereference) error
+		VisitLoop(l *Loop) error
 	}
 
 	Node interface{ Accept(Visitor) error }
@@ -387,6 +388,11 @@ type (
 		PrimaryBase
 		Value *Identifier
 	}
+	Loop struct {
+		PrimaryBase
+		Condition Value
+		Body      *Block
+	}
 )
 
 func (l *Literal) Accept(v Visitor) error      { return v.VisitLiteral(l) }
@@ -398,3 +404,4 @@ func (c *Condition) Accept(v Visitor) error    { return v.VisitCondition(c) }
 func (c *Index) Accept(v Visitor) error        { return v.VisitIndex(c) }
 func (a *ArrayLiteral) Accept(v Visitor) error { return v.VisitArrayLiteral(a) }
 func (d *Dereference) Accept(v Visitor) error  { return v.VisitDereference(d) }
+func (l *Loop) Accept(v Visitor) error         { return v.VisitLoop(l) }
