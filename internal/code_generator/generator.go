@@ -167,6 +167,9 @@ func (f *localFinder) VisitAssignment(a *ast.Assignment) error {
 func (f *localFinder) VisitDereference(d *ast.Dereference) error {
 	return d.Value.Accept(f)
 }
+func (f *localFinder) VisitLoop(l *ast.Loop) error {
+	return errors.Join(l.Condition.Accept(f), l.Body.Accept(f))
+}
 func (f *localFinder) VisitIndex(i *ast.Index) error {
 	i.Index.Accept(f)
 	return nil
@@ -785,6 +788,25 @@ func (g *Generator) VisitDereference(d *ast.Dereference) error {
 		return err
 	}
 	g.writeln("mov (%rax), %rax")
+	return nil
+}
+
+func (g *Generator) VisitLoop(l *ast.Loop) error {
+	g.writeln("# for loop")
+	startLabel := g.label()
+	endLabel := g.label()
+
+	g.writefln("%s:", startLabel)
+	if err := l.Condition.Accept(g); err != nil {
+		return err
+	}
+	g.writeln("cmp $1, %rax")
+	g.writefln("jne %s", endLabel)
+	if err := l.Body.Accept(g); err != nil {
+		return err
+	}
+	g.writefln("jmp %s", startLabel)
+	g.writefln("%s:", endLabel)
 	return nil
 }
 
