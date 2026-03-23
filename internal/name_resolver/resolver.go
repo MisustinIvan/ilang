@@ -192,6 +192,10 @@ func (r *Resolver) VisitDereference(d *ast.Dereference) error {
 	return d.Value.Accept(r)
 }
 
+func (r *Resolver) VisitLoop(l *ast.Loop) error {
+	return errors.Join(l.Condition.Accept(r), l.Body.Accept(r))
+}
+
 func (r *Resolver) VisitIndex(i *ast.Index) error {
 	return errors.Join(i.Identifier.Accept(r), i.Index.Accept(r))
 }
