@@ -182,7 +182,7 @@ func (t *PointerType) Accept(v Visitor) error {
 
 func (t *PointerType) Equals(o Type) bool {
 	if pointerType, ok := o.(*PointerType); ok {
-		return pointerType.Equals(t.Inner)
+		return t.Inner.Equals(pointerType.Inner)
 	}
 	return false
 }
