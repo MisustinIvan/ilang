@@ -10,11 +10,12 @@ func _() {
 	var x [1]struct{}
 	_ = x[Inversion-0]
 	_ = x[LogicNegation-1]
+	_ = x[AddressOf-2]
 }
 
-const _UnaryOperator_name = "InversionLogicNegation"
+const _UnaryOperator_name = "InversionLogicNegationAddressOf"
 
-var _UnaryOperator_index = [...]uint8{0, 9, 22}
+var _UnaryOperator_index = [...]uint8{0, 9, 22, 31}
 
 func (i UnaryOperator) String() string {
 	if i < 0 || i >= UnaryOperator(len(_UnaryOperator_index)-1) {
