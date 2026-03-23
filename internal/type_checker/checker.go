@@ -233,8 +233,8 @@ func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 }
 
 func (c *Checker) VisitDereference(d *ast.Dereference) error {
-	if _, ok := d.GetType().(*ast.PointerType); !ok {
-		return fmt.Errorf("can only dereference pointer types")
+	if _, ok := d.Value.GetType().(*ast.PointerType); !ok {
+		return fmt.Errorf("can only dereference pointer types, got %s", d.Value.GetType())
 	}
 	return nil
 }

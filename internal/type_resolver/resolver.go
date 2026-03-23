@@ -224,11 +224,12 @@ func (r *Resolver) VisitAssignment(a *ast.Assignment) error {
 }
 
 func (r *Resolver) VisitDereference(d *ast.Dereference) error {
+	err := d.Value.Accept(r)
 	if pointerType, ok := d.Value.GetType().(*ast.PointerType); ok {
 		d.SetType(pointerType.Inner)
 		return nil
 	} else {
-		return fmt.Errorf("can only dereference pointer types")
+		return errors.Join(err, fmt.Errorf("can only dereference pointer types, got %s @ %s", d.Value.GetType(), d.GetPosition()))
 	}
 }
 
