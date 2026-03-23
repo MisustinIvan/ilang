@@ -1,0 +1,16 @@
+extrn unit printf(string format, ...)
+
+int fac(int n) {
+	if n == 0 { 1 }
+	else {
+		let val: int = n;
+		for n > 1 {
+			n = n-1;
+			val = val*(n)
+		}
+	}
+}
+
+unit main() {
+	printf("fac(5) = %d\n", fac(5));
+}
