@@ -233,6 +233,12 @@ func (r *Resolver) VisitDereference(d *ast.Dereference) error {
 	}
 }
 
+func (r *Resolver) VisitLoop(l *ast.Loop) error {
+	err := errors.Join(l.Condition.Accept(r), l.Body.Accept(r))
+	l.SetType(l.Body.GetType())
+	return err
+}
+
 func (r *Resolver) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	var err error
 
