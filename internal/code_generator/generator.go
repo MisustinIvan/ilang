@@ -408,18 +408,13 @@ func (g *Generator) VisitBind(b *ast.Bind) error {
 			lenOffset := g.ctx.locals[t.LengthIdentifier]
 			g.writefln("mov %%rbx, -%d(%%rbp)", lenOffset)
 		}
-	case *ast.BasicType:
-		if err := b.Value.Accept(g); err != nil {
-			return err
-		}
-		g.storeScalar(offset)
-	case *ast.PointerType:
+	case *ast.BasicType, *ast.PointerType:
 		if err := b.Value.Accept(g); err != nil {
 			return err
 		}
 		g.storeScalar(offset)
 	default:
-		panic("unexpected expression")
+		return generatorError(b.GetPosition(), "unexpected type %s", b.Identifier.Resolved.GetType().String())
 	}
 	return nil
 }
@@ -486,6 +481,8 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 		g.loadScalar(offset)
 	case *ast.PointerType:
 		g.loadScalar(offset)
+	default:
+		return generatorError(i.GetPosition(), "unexpected type %s", i.Resolved.GetType().String())
 	}
 	return nil
 }
@@ -562,7 +559,10 @@ func (g *Generator) VisitUnary(u *ast.Unary) error {
 	g.writeln("# unary")
 
 	if u.Operator == ast.AddressOf {
-		id := u.Value.(*ast.Identifier)
+		id, ok := u.Value.(*ast.Identifier)
+		if !ok {
+			return generatorError(u.GetPosition(), "can only take address of identifiers")
+		}
 		offset := g.ctx.locals[id.Resolved] // identifier already resolved
 		g.writefln("lea -%d(%%rbp), %%rax", offset)
 		return nil
@@ -790,6 +790,9 @@ func (g *Generator) VisitDereference(d *ast.Dereference) error {
 
 func (g *Generator) generateArrayLiteralInit(a *ast.ArrayLiteral, baseOffset int) error {
 	g.writefln("# array literal init at -%d(%%rbp)", baseOffset)
+	if len(a.Values) == 0 {
+		return generatorError(a.GetPosition(), "unexpected empty array literal ")
+	}
 	elementSize := a.Values[0].GetType().Size()
 	for i, val := range a.Values {
 		if err := val.Accept(g); err != nil {
