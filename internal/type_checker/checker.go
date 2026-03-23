@@ -234,9 +234,17 @@ func (c *Checker) VisitAssignment(a *ast.Assignment) error {
 
 func (c *Checker) VisitDereference(d *ast.Dereference) error {
 	if _, ok := d.Value.GetType().(*ast.PointerType); !ok {
-		return fmt.Errorf("can only dereference pointer types, got %s", d.Value.GetType())
+		return typeError(d.GetPosition(), "can only dereference pointer types, got %s", d.Value.GetType())
 	}
 	return nil
+}
+
+func (c *Checker) VisitLoop(l *ast.Loop) error {
+	err := errors.Join(l.Condition.Accept(c), l.Body.Accept(c))
+	if !l.Condition.GetType().Equals(ast.BasicTypePtr(ast.Bool)) {
+		err = errors.Join(typeError(l.Condition.GetPosition(), "condition must be of type bool, got %s", l.Condition.GetType().String()))
+	}
+	return err
 }
 
 func (c *Checker) VisitArrayLiteral(a *ast.ArrayLiteral) error {
