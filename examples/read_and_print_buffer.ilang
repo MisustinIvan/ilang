@@ -1,0 +1,15 @@
+extrn int printf(string format, ...)
+extrn ^int malloc(int size)
+extrn unit free(^int ptr)
+extrn int read(int fd, ^int buf, int size)
+
+unit read_and_print_string() {
+    let buffer: ^int = malloc(1024);
+    read(0, buffer, 1024);
+    printf("%s", buffer);
+    free(buffer);
+}
+
+unit main() {
+	read_and_print_string();
+}
