@@ -156,6 +156,12 @@ func (c *Checker) VisitUnary(u *ast.Unary) error {
 		err = errors.Join(err, typeError(u.Position, "unary operator does not apply to type %v", u.Value.GetType()))
 	}
 
+	if u.Operator == ast.AddressOf {
+		if _, ok := u.Value.(*ast.Identifier); !ok {
+			err = errors.Join(err, typeError(u.Position, "can only take address of identifiers"))
+		}
+	}
+
 	return err
 }
 

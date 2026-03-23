@@ -270,6 +270,7 @@ var UnaryOperatorTokens = map[string]UnaryOperator{
 var UnaryOperatorApplies = map[UnaryOperator]map[BasicType]bool{
 	Inversion:     {Int: true, Float: true},
 	LogicNegation: {Bool: true},
+	AddressOf:     {Bool: true, Int: true, Float: true},
 }
 
 // expressions
