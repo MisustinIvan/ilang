@@ -38,6 +38,11 @@ primary              ::= literal
                        | index
                        | deref
                        | loop
+                       | make
+                       | release
+
+make                 ::= "make" "(" basic_type "," value ")"
+release              ::= "release" "(" identifier ")"
 
 loop                 ::= "for" value block
 
