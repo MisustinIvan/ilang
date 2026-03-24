@@ -14,10 +14,11 @@ func generatorError(position lexer.Position, msg string, args ...any) error {
 }
 
 type functionContext struct {
-	currentDecl   *ast.Declaration // current function declaration ast node
-	locals        map[any]int      // maps a local identifier or node to a stack offset
-	stackOffset   int              // total stack offset of the function to allocate memory on the stack
-	argsGenerated int              // how many function arguments had their code generated
+	currentDecl        *ast.Declaration // current function declaration ast node
+	locals             map[any]int      // maps a local identifier or node to a stack offset
+	stackOffset        int              // total stack offset of the function to allocate memory on the stack
+	argsGenerated      int              // how many function arguments had their code generated
+	floatArgsGenerated int              // how many float function arguments had their code generated
 }
 
 type Generator struct {
@@ -42,6 +43,16 @@ func (g *Generator) loadScalar(offset int) {
 // storeScalar writes %rax to the local at offset.
 func (g *Generator) storeScalar(offset int) {
 	g.writefln("mov %%rax, -%d(%%rbp)", offset)
+}
+
+// loadFloatScalar loads the float scalar from offset to %xmm0
+func (g *Generator) loadFloatScalar(offset int) {
+	g.writefln("movsd -%d(%%rbp), %%xmm0", offset)
+}
+
+// storeFloatScalar stores the float scalar from %xmm0 to local at offset
+func (g *Generator) storeFloatScalar(offset int) {
+	g.writefln("movsd %%xmm0, -%d(%%rbp)", offset)
 }
 
 // loadArrayAddr loads the address of the local array at offset into %rax.
@@ -228,6 +239,9 @@ func (g *Generator) Generate() (string, error) {
 		case l.GetType().Equals(ast.BasicTypePtr(ast.String)):
 			g.writeln(id + ":")
 			g.writeln(".asciz " + l.Value)
+		case l.GetType().Equals(ast.BasicTypePtr(ast.Float)):
+			g.writeln(id + ":")
+			g.writeln(".double " + l.Value)
 		default:
 			err = errors.Join(err, generatorError(l.Position, "can't generate constant of type %s", l.GetType().String()))
 		}
@@ -342,6 +356,26 @@ func (g *Generator) loadNthArg(n, offset int) {
 	}
 }
 
+func (g *Generator) storeNthFloatArg(n int) {
+	if n > 7 {
+		panic(fmt.Sprintf("storeNthFloatArg called with slot %d", n))
+	}
+	if n > 0 {
+		g.writefln("movsd %%xmm0, %%xmm%d", n)
+	}
+	// for n==0 arg is already in %xmm0
+}
+
+func (g *Generator) loadNthFloatArg(n, offset int) {
+	if n <= 7 {
+		g.writefln("movsd %%xmm%d, -%d(%%rbp)", n, offset)
+	} else {
+		stackOffset := 16 + (n-8)*8
+		g.writefln("movsd %d(%%rbp), %%xmm0", stackOffset)
+		g.writefln("movsd %%xmm0, -%d(%%rbp)", offset)
+	}
+}
+
 func (g *Generator) isArgument(id *ast.Identifier) bool {
 	for _, arg := range g.ctx.currentDecl.Args {
 		if arg.Identifier == id {
@@ -364,6 +398,14 @@ func (g *Generator) VisitArgument(a *ast.Argument) error {
 		if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
 			lenOffset := g.ctx.locals[st.LengthIdentifier]
 			g.loadNthArg(g.ctx.argsGenerated-1, lenOffset)
+		}
+	case *ast.BasicType:
+		if t.Equals(ast.BasicTypePtr(ast.Float)) {
+			g.loadNthFloatArg(g.ctx.floatArgsGenerated, offset)
+			g.ctx.floatArgsGenerated++
+		} else {
+			g.loadNthArg(g.ctx.argsGenerated, offset)
+			g.ctx.argsGenerated++
 		}
 	default:
 		g.loadNthArg(g.ctx.argsGenerated, offset)
@@ -427,7 +469,11 @@ func (g *Generator) VisitBind(b *ast.Bind) error {
 		if err := b.Value.Accept(g); err != nil {
 			return err
 		}
-		g.storeScalar(offset)
+		if t.Equals(ast.BasicTypePtr(ast.Float)) {
+			g.storeFloatScalar(offset)
+		} else {
+			g.storeScalar(offset)
+		}
 	default:
 		return generatorError(b.GetPosition(), "unexpected type %s", b.Identifier.Resolved.GetType().String())
 	}
@@ -462,7 +508,9 @@ func (g *Generator) VisitLiteral(l *ast.Literal) error {
 		g.constants[label] = l
 		g.writefln("lea %s(%%rip), %%rax", label)
 	case ast.Float:
-		return generatorError(l.Position, "float literals are not supported")
+		label := g.constLabel()
+		g.constants[label] = l
+		g.writefln("movsd %s(%%rip), %%xmm0", label)
 	case ast.Unit:
 		g.writeln("mov $0, %rax")
 	case ast.Undefined:
@@ -474,6 +522,7 @@ func (g *Generator) VisitLiteral(l *ast.Literal) error {
 // VisitIdentifier evaluates an identifier per the value protocol:
 //
 //	BasicType -> scalar in %rax
+//			  -> Float -> scalar in %xmm0
 //	ArrayType -> pointer in %rax, length in %rbx
 //	SliceType -> pointer in %rax, length in %rbx
 func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
@@ -493,7 +542,11 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 	case *ast.SliceType:
 		g.loadSlice(offset)
 	case *ast.BasicType:
-		g.loadScalar(offset)
+		if t.Equals(ast.BasicTypePtr(ast.Float)) {
+			g.loadFloatScalar(offset)
+		} else {
+			g.loadScalar(offset)
+		}
 	case *ast.PointerType:
 		g.loadScalar(offset)
 	default:
@@ -512,25 +565,42 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 func (g *Generator) VisitCall(c *ast.Call) error {
 	g.writeln("# call")
 
-	// Count physical slots first
-	physicalArgCount := 0
+	// Count physical slots separately for ints and floats
+	intArgCount := 0
+	floatArgCount := 0
 	for _, arg := range c.Arguments {
-		switch arg.GetType().(type) {
-		case *ast.BasicType, *ast.PointerType:
-			physicalArgCount++
+		switch t := arg.GetType().(type) {
+		case *ast.BasicType:
+			if t.Equals(ast.BasicTypePtr(ast.Float)) {
+				floatArgCount++
+			} else {
+				intArgCount++
+			}
+		case *ast.PointerType:
+			intArgCount++
 		case *ast.ArrayType, *ast.SliceType:
-			physicalArgCount += 2
+			intArgCount += 2
 		default:
 			return generatorError(arg.GetPosition(), "unsupported argument type %s", arg.GetType().String())
 		}
 	}
 
-	// Evaluate right to left so slot 0 ends up on top
+	// Evaluate right to left, pushing everything onto the stack.
+	// Floats are pushed as raw 8-byte values.
 	for i := len(c.Arguments) - 1; i >= 0; i-- {
 		arg := c.Arguments[i]
 		g.writefln("# argument %d", i)
-		switch arg.GetType().(type) {
-		case *ast.BasicType, *ast.PointerType:
+		switch t := arg.GetType().(type) {
+		case *ast.BasicType:
+			if err := arg.Accept(g); err != nil {
+				return err
+			}
+			if *t == ast.Float {
+				// move xmm0 to integer register so we can push it
+				g.writeln("movq %xmm0, %rax")
+			}
+			g.writeln("push %rax")
+		case *ast.PointerType:
 			if err := arg.Accept(g); err != nil {
 				return err
 			}
@@ -539,28 +609,58 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 			if err := arg.Accept(g); err != nil {
 				return err
 			}
-			g.writeln("push %rbx # length")  // higher slot means deeper
-			g.writeln("push %rax # pointer") // lower slot means on top
+			g.writeln("push %rbx # length")
+			g.writeln("push %rax # pointer")
 		}
 	}
 
-	g.writeln("xor %rax, %rax # clear for variadic functions")
-
-	// Pop the register args in order - stack args stay exactly where they are
-	regArgCount := min(physicalArgCount, 6)
-	for i := range regArgCount {
-		g.writeln("pop %rax")
-		g.storeNthArg(i)
+	// pop into the correct registers -
+	// integer and float args have independent register sequences,
+	// so we track them separately while iterating left to right
+	intSlot := 0
+	floatSlot := 0
+	for _, arg := range c.Arguments {
+		switch t := arg.GetType().(type) {
+		case *ast.BasicType:
+			if *t == ast.Float {
+				g.writeln("pop %rax")
+				g.writeln("movq %rax, %xmm0")
+				g.storeNthFloatArg(floatSlot)
+				floatSlot++
+			} else {
+				g.writeln("pop %rax")
+				g.storeNthArg(intSlot)
+				intSlot++
+			}
+		case *ast.PointerType:
+			g.writeln("pop %rax")
+			g.storeNthArg(intSlot)
+			intSlot++
+		case *ast.ArrayType, *ast.SliceType:
+			g.writeln("pop %rax # pointer")
+			g.storeNthArg(intSlot)
+			intSlot++
+			g.writeln("pop %rax # length")
+			g.storeNthArg(intSlot)
+			intSlot++
+		}
 	}
 
+	// For variadic functions %rax must contain the number of float args
 	if g.externals[c.Identifier.Resolved] {
+		g.writefln("mov $%d, %%rax", floatArgCount)
 		g.writefln("call %s@PLT", c.Identifier.Name)
 	} else {
+		g.writeln("xor %rax, %rax")
 		g.writefln("call %s", c.Identifier.Name)
 	}
 
-	if physicalArgCount > 6 {
-		g.writefln("add $%d, %%rsp", (physicalArgCount-6)*8)
+	// Clean up any stack args
+	excessInt := max(intArgCount-6, 0)
+	excessFloat := max(floatArgCount-8, 0)
+	excess := excessInt + excessFloat
+	if excess > 0 {
+		g.writefln("add $%d, %%rsp", excess*8)
 	}
 	return nil
 }
@@ -652,20 +752,77 @@ func (g *Generator) generateBinaryOperator(o ast.BinaryOperator) error {
 	return nil
 }
 
+// the same as with non-float types but with %xmm0 and %xmm1
+func (g *Generator) generateFloatBinaryOperator(o ast.BinaryOperator) error {
+	switch o {
+	case ast.Addition:
+		g.writeln("addsd %xmm1, %xmm0")
+	case ast.Subtraction:
+		g.writeln("subsd %xmm1, %xmm0")
+	case ast.Multiplication:
+		g.writeln("mulsd %xmm1, %xmm0")
+	case ast.Division:
+		g.writeln("divsd %xmm1, %xmm0")
+	case ast.Equality:
+		g.writeln("ucomisd %xmm1, %xmm0")
+		g.writeln("sete %al")
+		g.writeln("movzbq %al, %rax")
+	case ast.Inequality:
+		g.writeln("ucomisd %xmm1, %xmm0")
+		g.writeln("setne %al")
+		g.writeln("movzbq %al, %rax")
+	case ast.Less:
+		g.writeln("ucomisd %xmm1, %xmm0")
+		g.writeln("setb %al")
+		g.writeln("movzbq %al, %rax")
+	case ast.Greater:
+		g.writeln("ucomisd %xmm1, %xmm0")
+		g.writeln("seta %al")
+		g.writeln("movzbq %al, %rax")
+	case ast.LessEqual:
+		g.writeln("ucomisd %xmm1, %xmm0")
+		g.writeln("setbe %al")
+		g.writeln("movzbq %al, %rax")
+	case ast.GreaterEqual:
+		g.writeln("ucomisd %xmm1, %xmm0")
+		g.writeln("setae %al")
+		g.writeln("movzbq %al, %rax")
+	default:
+		panic(fmt.Sprintf("float operator %s not implemented", o.String()))
+	}
+	return nil
+}
+
 // VisitBinary evaluates left to %rax (pushed), right to %rax (moved to %rbx),
-// pops left back to %rax, then applies the operator.
+// pops left back to %rax, then applies the operator. (it does the same for floats
+// by storing the intermediate value on the stack and using %xmm0 and %xmm1)
 func (g *Generator) VisitBinary(u *ast.Binary) error {
 	g.writeln("# binary")
-	if err := u.Left.Accept(g); err != nil {
-		return err
+	if u.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+		if err := u.Left.Accept(g); err != nil {
+			return err
+		}
+		g.writeln("sub $8, %rsp")
+		g.writeln("movsd %xmm0, (%rsp)") // save left
+		if err := u.Right.Accept(g); err != nil {
+			return err
+		}
+		g.writeln("movsd %xmm0, %xmm1")  // right to %xmm1
+		g.writeln("movsd (%rsp), %xmm0") // left to %xmm0
+		g.writeln("add $8, %rsp")
+		return g.generateFloatBinaryOperator(u.Operator)
+	} else {
+		if err := u.Left.Accept(g); err != nil {
+			return err
+		}
+		g.writeln("push %rax")
+		if err := u.Right.Accept(g); err != nil {
+			return err
+		}
+		g.writeln("mov %rax, %rbx")
+		g.writeln("pop %rax")
+		return g.generateBinaryOperator(u.Operator)
 	}
-	g.writeln("push %rax")
-	if err := u.Right.Accept(g); err != nil {
-		return err
-	}
-	g.writeln("mov %rax, %rbx")
-	g.writeln("pop %rax")
-	return g.generateBinaryOperator(u.Operator)
 }
 
 func (g *Generator) VisitBlock(b *ast.Block) error {
@@ -758,7 +915,11 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 			if err := a.Value.Accept(g); err != nil {
 				return err
 			}
-			g.storeScalar(offset)
+			if t.Equals(ast.BasicTypePtr(ast.Float)) {
+				g.storeFloatScalar(offset)
+			} else {
+				g.storeScalar(offset)
+			}
 		}
 	case *ast.Index:
 		if err := a.Value.Accept(g); err != nil {
