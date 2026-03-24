@@ -247,6 +247,26 @@ func (c *Checker) VisitLoop(l *ast.Loop) error {
 	return err
 }
 
+func (c *Checker) VisitMake(m *ast.Make) error {
+	err := m.Length.Accept(c)
+
+	if !m.Length.GetType().Equals(ast.BasicTypePtr(ast.Int)) {
+		err = errors.Join(typeError(m.Length.GetPosition(), "length value must be of type int in make expression"))
+	}
+
+	return err
+}
+
+func (c *Checker) VisitRelease(m *ast.Release) error {
+	err := m.Value.Accept(c)
+
+	if _, isSliceType := m.Value.GetType().(*ast.SliceType); !isSliceType {
+		err = errors.Join(typeError(m.Value.GetPosition(), "can only release value of slice type"))
+	}
+
+	return err
+}
+
 func (c *Checker) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	var err error
 
