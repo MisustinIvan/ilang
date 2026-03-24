@@ -49,7 +49,7 @@ func (r *Resolver) PopScope() {
 // innermost scope.
 func (r *Resolver) Declare(identifier *ast.Identifier) error {
 	if val, exists := r.scope.locals[identifier.Name]; exists {
-		return fmt.Errorf("identifier %s already declared at %s", identifier.Name, val.Position)
+		return fmt.Errorf("%s: identifier %s already declared at %s", identifier.Position, identifier.Name, val.Position)
 	}
 	r.scope.locals[identifier.Name] = identifier
 	return nil

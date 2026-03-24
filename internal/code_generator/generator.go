@@ -170,6 +170,12 @@ func (f *localFinder) VisitDereference(d *ast.Dereference) error {
 func (f *localFinder) VisitLoop(l *ast.Loop) error {
 	return errors.Join(l.Condition.Accept(f), l.Body.Accept(f))
 }
+func (f *localFinder) VisitMake(m *ast.Make) error {
+	return m.Length.Accept(f)
+}
+func (f *localFinder) VisitRelease(r *ast.Release) error {
+	return r.Value.Accept(f)
+}
 func (f *localFinder) VisitIndex(i *ast.Index) error {
 	i.Index.Accept(f)
 	return nil
@@ -811,6 +817,29 @@ func (g *Generator) VisitLoop(l *ast.Loop) error {
 	g.writefln("jmp %s", startLabel)
 	g.writefln("%s:", endLabel)
 	g.writeln("pop %rax") // restore last body result (or 0 for no iterations)
+	return nil
+}
+
+func (g *Generator) VisitMake(m *ast.Make) error {
+	if err := m.Length.Accept(g); err != nil {
+		return err
+	}
+	// save length
+	g.writeln("push %rax")
+	// multiply by element size
+	g.writefln("imul $%d, %%rax", m.Type.Size())
+	// call malloc
+	g.writeln("mov %rax, %rdi")
+	g.writeln("call malloc@PLT")
+	g.writeln("pop %rbx") // length to %rbx
+	return nil
+}
+
+func (g *Generator) VisitRelease(r *ast.Release) error {
+	offset := g.ctx.locals[r.Value.Resolved]
+	g.loadSlice(offset) // ptr in %rax, length in %rbx
+	g.writeln("mov %rax, %rdi")
+	g.writeln("call free@PLT")
 	return nil
 }
 
