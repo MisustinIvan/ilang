@@ -239,6 +239,19 @@ func (r *Resolver) VisitLoop(l *ast.Loop) error {
 	return err
 }
 
+func (r *Resolver) VisitMake(m *ast.Make) error {
+	m.SetType(&ast.SliceType{
+		Element:          m.Type,
+		LengthIdentifier: nil,
+	})
+	return m.Length.Accept(r)
+}
+
+func (r *Resolver) VisitRelease(s *ast.Release) error {
+	s.SetType(ast.BasicTypePtr(ast.Unit))
+	return s.Value.Accept(r)
+}
+
 func (r *Resolver) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	var err error
 
