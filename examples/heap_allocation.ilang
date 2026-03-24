@@ -1,0 +1,23 @@
+extrn unit scanf(string format, ...)
+extrn unit printf(string format, ...)
+
+unit main() {
+	let size: int = 0;
+	printf("enter slice size: ");
+	scanf("%d", ^size);
+
+	let slice: [slice_size]int = make(int, size);
+
+	if slice_size >= 5 {
+		slice[4] = 69420;
+	};
+
+	{
+		let idx: int = 0;
+		for idx < slice_size {
+			printf("slice[%d] = %d\n", idx, slice[idx]);
+			idx = idx + 1;
+		};
+	};
+	release(slice);
+}
