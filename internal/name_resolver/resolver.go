@@ -196,6 +196,14 @@ func (r *Resolver) VisitLoop(l *ast.Loop) error {
 	return errors.Join(l.Condition.Accept(r), l.Body.Accept(r))
 }
 
+func (r *Resolver) VisitMake(m *ast.Make) error {
+	return m.Length.Accept(r)
+}
+
+func (r *Resolver) VisitRelease(s *ast.Release) error {
+	return s.Value.Accept(r)
+}
+
 func (r *Resolver) VisitIndex(i *ast.Index) error {
 	return errors.Join(i.Identifier.Accept(r), i.Index.Accept(r))
 }
