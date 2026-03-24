@@ -630,7 +630,7 @@ func (p *Parser) ParseMake() (*ast.Make, error) {
 	}
 
 	Make := &ast.Make{
-		Type:   Type,
+		Type:   *Type,
 		Length: Length,
 	}
 	Make.SetPosition(makeToken.Position)

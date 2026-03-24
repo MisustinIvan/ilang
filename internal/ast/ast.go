@@ -397,7 +397,7 @@ type (
 	}
 	Make struct {
 		PrimaryBase
-		Type   *BasicType
+		Type   BasicType
 		Length Value
 	}
 	Release struct {
