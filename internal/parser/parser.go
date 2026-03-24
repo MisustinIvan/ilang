@@ -890,7 +890,7 @@ func (p *Parser) ParseIndex() (*ast.Index, error) {
 		return nil, err
 	}
 
-	Index, err = p.ParsePrimary()
+	Index, err = p.ParseValue()
 	if err != nil {
 		return nil, err
 	}
