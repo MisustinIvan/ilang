@@ -509,7 +509,11 @@ func (p *Parser) ParseAssignment() (*ast.Assignment, error) {
 //	                       | unary
 func (p *Parser) ParseValue() (ast.Value, error) {
 	if p.matchCurrent(lexer.Operator, "") && !p.matchCurrent(lexer.Operator, "@") {
-		return p.ParseUnary()
+		unary, err := p.ParseUnary()
+		if err != nil {
+			return nil, err
+		}
+		return p.parseBinary(unary)
 	}
 
 	primary, err := p.ParsePrimary()
