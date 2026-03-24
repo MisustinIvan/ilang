@@ -239,6 +239,12 @@ func (g *Generator) programHeaders() {
 	g.writeln("# program headers")
 	g.writeln(".text")
 	g.writeln(".globl main\n")
+	g.generateBuiltinExterns()
+}
+
+func (g *Generator) generateBuiltinExterns() {
+	g.writeln(".extern malloc")
+	g.writeln(".extern free")
 }
 
 func (g *Generator) VisitProgram(p *ast.Program) error {
