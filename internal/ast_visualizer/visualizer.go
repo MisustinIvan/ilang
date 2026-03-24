@@ -362,6 +362,30 @@ func (v *AstVisualizer) VisitLoop(l *ast.Loop) error {
 	return errors.Join(err, l.Body.Accept(v))
 }
 
+func (v *AstVisualizer) VisitMake(m *ast.Make) error {
+	v.WriteNode("Make", none)
+	defer v.Pop()
+
+	err := m.GetType().Accept(v)
+
+	v.WriteNode("Type", none)
+	err = errors.Join(err, m.Type.Accept(v))
+	v.Pop()
+
+	v.WriteNode("Length", none)
+	err = errors.Join(err, m.Length.Accept(v))
+	v.Pop()
+
+	return err
+}
+
+func (v *AstVisualizer) VisitRelease(r *ast.Release) error {
+	v.WriteNode("Release", none)
+	defer v.Pop()
+
+	return r.Value.Accept(v)
+}
+
 func (v *AstVisualizer) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	v.WriteNode("ArrayLiteral", none)
 	defer v.Pop()
