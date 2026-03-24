@@ -32,6 +32,8 @@ type (
 		VisitArrayLiteral(a *ArrayLiteral) error
 		VisitDereference(d *Dereference) error
 		VisitLoop(l *Loop) error
+		VisitMake(m *Make) error
+		VisitRelease(r *Release) error
 	}
 
 	Node interface{ Accept(Visitor) error }
@@ -393,6 +395,15 @@ type (
 		Condition Value
 		Body      *Block
 	}
+	Make struct {
+		PrimaryBase
+		Type   *BasicType
+		Length Value
+	}
+	Release struct {
+		PrimaryBase
+		Value *Identifier
+	}
 )
 
 func (l *Literal) Accept(v Visitor) error      { return v.VisitLiteral(l) }
@@ -405,3 +416,5 @@ func (c *Index) Accept(v Visitor) error        { return v.VisitIndex(c) }
 func (a *ArrayLiteral) Accept(v Visitor) error { return v.VisitArrayLiteral(a) }
 func (d *Dereference) Accept(v Visitor) error  { return v.VisitDereference(d) }
 func (l *Loop) Accept(v Visitor) error         { return v.VisitLoop(l) }
+func (m *Make) Accept(v Visitor) error         { return v.VisitMake(m) }
+func (r *Release) Accept(v Visitor) error      { return v.VisitRelease(r) }
