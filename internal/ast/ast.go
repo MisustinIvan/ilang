@@ -240,8 +240,8 @@ var BinaryOperatorApplies = map[BinaryOperator]map[BasicType]bool{
 	GreaterEqual:   {Int: true, Float: true},
 	ShiftLeft:      {Int: true},
 	ShiftRight:     {Int: true},
-	LogicAnd:       {Bool: true},
-	LogicOr:        {Bool: true},
+	LogicAnd:       {Bool: true, Int: true},
+	LogicOr:        {Bool: true, Int: true},
 }
 
 var BoolOperators = map[BinaryOperator]bool{
