@@ -51,10 +51,13 @@ unit print_n_iterations([board_len]int board, [next_len]int next_board, int iter
 }
 
 int main() {
-	let board: [60]int = 0;
-	let next_board: [60]int = 0;
-	board[59] = 1;
+	let size: int = 60;
+	let board: []int = make(int, size);
+	let next_board: []int = make(int, size);
+	board[size-1] = 1;
 	print_board(board);
-	print_n_iterations(board, next_board, 59);
+	print_n_iterations(board, next_board, size-1);
+	release(board);
+	release(next_board);
 	0
 }
