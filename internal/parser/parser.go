@@ -564,6 +564,9 @@ func (p *Parser) parseBinary(left ast.Primary) (ast.Value, error) {
 //	                       | condition
 //	                       | index
 //	                       | deref
+//	                       | loop
+//	                       | make
+//	                       | release
 func (p *Parser) ParsePrimary() (ast.Primary, error) {
 	switch {
 	case p.matchCurrent(lexer.Operator, "@"):
@@ -586,9 +589,83 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 		return p.ParseArrayLiteral()
 	case p.matchCurrent(lexer.Keyword, lexer.KeywordFor):
 		return p.ParseLoop()
+	case p.matchCurrent(lexer.Keyword, lexer.KeywordMake):
+		return p.ParseMake()
+	case p.matchCurrent(lexer.Keyword, lexer.KeywordRelease):
+		return p.ParseRelease()
 	default:
 		return nil, fmt.Errorf("unexpected primary expression")
 	}
+}
+
+// ParseMake parses a make expression according to the grammar:
+//
+// make                 ::= "make" "(" basic_type "," value ")"
+func (p *Parser) ParseMake() (*ast.Make, error) {
+	makeToken, err := p.Expect(lexer.Keyword, lexer.KeywordMake)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, "("); err != nil {
+		return nil, err
+	}
+
+	Type, err := p.ParseBasicType()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, ","); err != nil {
+		return nil, err
+	}
+
+	Length, err := p.ParseValue()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, ")"); err != nil {
+		return nil, err
+	}
+
+	Make := &ast.Make{
+		Type:   Type,
+		Length: Length,
+	}
+	Make.SetPosition(makeToken.Position)
+
+	return Make, nil
+}
+
+// ParseRelease parses a release expression according to the grammar:
+//
+// release              ::= "release" "(" identifier ")"
+func (p *Parser) ParseRelease() (*ast.Release, error) {
+	releaseToken, err := p.Expect(lexer.Keyword, lexer.KeywordRelease)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, "("); err != nil {
+		return nil, err
+	}
+
+	Value, err := p.ParseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.Expect(lexer.Punctuator, ")"); err != nil {
+		return nil, err
+	}
+
+	Release := &ast.Release{
+		Value: Value,
+	}
+	Release.SetPosition(releaseToken.Position)
+
+	return Release, nil
 }
 
 // ParseLoop parses a loop according to the grammar:
