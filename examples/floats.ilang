@@ -1,0 +1,17 @@
+extrn unit printf(string format, ...)
+
+unit print_numbers(int a, float b) {
+	printf("a = %d\n", a);
+	printf("b = %f\n", b);
+}
+
+unit main() {
+	let n1: float = 4.2;
+	let n2: float = 6.7;
+
+	printf("n1 = %f\n", n1);
+	printf("n2 = %f\n", n2);
+	printf("n1*n2 = %f\n", n1*n2);
+
+	print_numbers(10, 69.420);
+}
