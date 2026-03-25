@@ -45,11 +45,11 @@ func (r *Resolver) PopScope() {
 
 // Declare declares a new local name from the identifier. In case the name is
 // already declared Declare returns an error reporting the details. The Declare
-// function allow for name shadowing and so it checks for conflicts only in the
+// function allows name shadowing and so it checks for conflicts only in the
 // innermost scope.
 func (r *Resolver) Declare(identifier *ast.Identifier) error {
 	if val, exists := r.scope.locals[identifier.Name]; exists {
-		return fmt.Errorf("%s: identifier %s already declared at %s", identifier.Position, identifier.Name, val.Position)
+		return fmt.Errorf("%s identifier %s already declared at %s\n%s", identifier.Position.String(), identifier.Name, val.Position.String(), identifier.Position.Snippet(len(identifier.Name)))
 	}
 	r.scope.locals[identifier.Name] = identifier
 	return nil
@@ -127,7 +127,7 @@ func (r *Resolver) VisitBind(b *ast.Bind) error {
 func (r *Resolver) VisitIdentifier(i *ast.Identifier) error {
 	ref := r.Lookup(i.Name)
 	if ref == nil {
-		return fmt.Errorf("undeclared identifier %s at %s", i.Name, i.Position)
+		return fmt.Errorf("%s undeclared identifier %s\n%s", i.Position.String(), i.Name, i.Position.Snippet(len(i.Name)))
 	}
 	i.Resolved = ref
 	return nil
