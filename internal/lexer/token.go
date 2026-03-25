@@ -32,7 +32,7 @@ func (p Position) Snippet(length int) string {
 	displayLine := strings.ReplaceAll(p.LineString, "\t", "    ")
 	col := min(p.Column-1, len(p.LineString))
 	prefix := strings.ReplaceAll(p.LineString[:col], "\t", "    ")
-	caret := strings.Repeat(" ", len(prefix)) + strings.Repeat("^", max(length, 1))
+	caret := strings.Repeat(" ", len(prefix)) + "\033[31m" + strings.Repeat("^", max(length, 1)) + "\033[0m"
 	return fmt.Sprintf("%s |\n%s | %s\n%s | %s", padding, lineNumber, displayLine, padding, caret)
 }
 
