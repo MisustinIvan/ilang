@@ -10,7 +10,7 @@ import (
 )
 
 func generatorError(position lexer.Position, msg string, args ...any) error {
-	return fmt.Errorf("%s %s", position.String(), fmt.Sprintf(msg, args...))
+	return fmt.Errorf("%s %s\n%s", position.String(), fmt.Sprintf(msg, args...), position.Snippet(1))
 }
 
 type functionContext struct {
