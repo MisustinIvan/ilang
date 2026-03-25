@@ -10,7 +10,7 @@ import (
 )
 
 func typeError(position lexer.Position, format string, args ...any) error {
-	return fmt.Errorf("%v at %s", fmt.Errorf(format, args...), position)
+	return fmt.Errorf("%s %s\n%s", position.String(), fmt.Sprintf(format, args...), position.Snippet(1))
 }
 
 type Function struct {
