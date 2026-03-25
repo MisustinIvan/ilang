@@ -12,7 +12,12 @@ import (
 	"strings"
 
 	"github.com/MisustinIvan/ilang/internal/ast"
+	"github.com/MisustinIvan/ilang/internal/lexer"
 )
+
+func typeResolutionError(position lexer.Position, message string, args ...any) error {
+	return fmt.Errorf("%s %s\n%s", position.String(), fmt.Sprintf(message, args...), position.Snippet(1))
+}
 
 type Resolver struct {
 	prog *ast.Program
@@ -28,11 +33,11 @@ func (r *Resolver) ResolveTypes() (*ast.Program, error) { return r.prog, r.Visit
 func (r *Resolver) VisitProgram(p *ast.Program) error {
 	var err error
 	for _, decl := range p.ExternalDeclarations {
-		err = errors.Join(decl.Accept(r))
+		err = errors.Join(err, decl.Accept(r))
 	}
 
 	for _, decl := range p.Declarations {
-		err = errors.Join(decl.Accept(r))
+		err = errors.Join(err, decl.Accept(r))
 	}
 
 	return err
@@ -115,7 +120,7 @@ func (r *Resolver) VisitLiteral(l *ast.Literal) error {
 	t := literalType(l.Value)
 	l.SetType(t)
 	if t.Equals(ast.BasicTypePtr(ast.Undefined)) {
-		return fmt.Errorf("literal of undefined type at %v", l.GetPosition())
+		return typeResolutionError(l.GetPosition(), "literal of undefined type")
 	}
 	return nil
 }
@@ -123,7 +128,7 @@ func (r *Resolver) VisitLiteral(l *ast.Literal) error {
 func (r *Resolver) VisitIdentifier(i *ast.Identifier) error {
 	if i.Resolved == nil {
 		i.SetType(ast.BasicTypePtr(ast.Undefined))
-		return fmt.Errorf("unresolved identifier at %s has undefined type", i.GetPosition())
+		return typeResolutionError(i.GetPosition(), "unresolved identifier has undefined type")
 	}
 	i.SetType(i.Resolved.Type)
 	return nil
@@ -134,7 +139,7 @@ func (r *Resolver) VisitCall(c *ast.Call) error {
 	err = errors.Join(err, c.Identifier.Accept(r))
 	if c.Identifier.Resolved == nil {
 		c.SetType(ast.BasicTypePtr(ast.Undefined))
-		err = errors.Join(err, fmt.Errorf("unresolved function call at %s has undefined type", c.GetPosition()))
+		err = errors.Join(err, typeResolutionError(c.GetPosition(), "unresolved function call has undefined type"))
 	} else {
 		c.SetType(c.Identifier.Resolved.Type)
 	}
@@ -158,7 +163,7 @@ func (r *Resolver) VisitUnary(u *ast.Unary) error {
 	if u.Operator == ast.AddressOf {
 		inner, ok := u.Value.GetType().(*ast.BasicType)
 		if !ok {
-			return fmt.Errorf("can't take address of %s, only of basic types at %s", u.Value.GetType().String(), u.GetPosition().String())
+			return typeResolutionError(u.GetPosition(), "can't take address of %s, can only take address of basic types", u.Value.GetType().String())
 		}
 
 		u.SetType(&ast.PointerType{
@@ -229,7 +234,7 @@ func (r *Resolver) VisitDereference(d *ast.Dereference) error {
 		d.SetType(pointerType.Inner)
 		return nil
 	} else {
-		return errors.Join(err, fmt.Errorf("can only dereference pointer types, got %s @ %s", d.Value.GetType(), d.GetPosition()))
+		return errors.Join(err, typeResolutionError(d.GetPosition(), "can only dereference pointer types, got %s", d.Value.GetType().String()))
 	}
 }
 
@@ -290,7 +295,7 @@ func (r *Resolver) VisitIndex(i *ast.Index) error {
 	} else if t, isSlice := i.Identifier.Resolved.GetType().(*ast.SliceType); isSlice {
 		i.SetType(&t.Element)
 	} else {
-		return fmt.Errorf("indexing identifier of non-array/slice type")
+		return typeResolutionError(i.GetPosition(), "indexing identifier of non-array/slice type")
 	}
 
 	return err
