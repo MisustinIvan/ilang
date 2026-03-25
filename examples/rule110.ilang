@@ -1,4 +1,5 @@
 extrn unit printf(string format, ...)
+extrn unit scanf(string format, ...)
 
 unit print_board([slice_len]int board) {
 	let idx: int = 0;
@@ -50,8 +51,15 @@ unit print_n_iterations([board_len]int board, [next_len]int next_board, int iter
 	}
 }
 
+int read_number_from_stdin(string prompt) {
+	let number: int = 0;
+	printf(prompt);
+	scanf("%d", ^number);
+	number
+}
+
 int main() {
-	let size: int = 60;
+	let size: int = read_number_from_stdin("board size: ");
 	let board: []int = make(int, size);
 	let next_board: []int = make(int, size);
 	board[size-1] = 1;
