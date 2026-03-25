@@ -1,0 +1,115 @@
+extrn unit printf(string format, ...)
+extrn unit srand(int seed)
+extrn int time(int loc)
+extrn int rand()
+extrn unit usleep(int microseconds)
+
+int width() { 40 }
+int height() { 25 }
+
+int idx(int x, int y) {
+    (y * width()) + x
+}
+
+bool get([]bool board, int x, int y) {
+    board[idx(x, y)]
+}
+
+unit set([]bool board, int x, int y, bool val) {
+    board[idx(x, y)] = val;
+}
+
+int count_neighbors([]bool board, int x, int y) {
+    let count: int = 0;
+    let dy: int = -1;
+    for dy <= 1 {
+        let dx: int = -1;
+        for dx <= 1 {
+            if !((dx == 0) && (dy == 0)) {
+                let nx: int = x + dx;
+                let ny: int = y + dy;
+                if (nx >= 0) && (nx < width()) && (ny >= 0) && (ny < height()) {
+                    if get(board, nx, ny) {
+                        count = count + 1;
+                    };
+                };
+            };
+            dx = dx + 1;
+        };
+        dy = dy + 1;
+    };
+	count
+}
+
+unit next_gen([]bool board, []bool next) {
+    let y: int = 0;
+    for y < height() {
+        let x: int = 0;
+        for x < width() {
+            let n: int = count_neighbors(board, x, y);
+            let alive: bool = get(board, x, y);
+            let next_alive: bool = if alive {
+                (n == 2) || (n == 3)
+            } else {
+                n == 3
+            };
+            set(next, x, y, next_alive);
+            x = x + 1;
+        };
+        y = y + 1;
+    }
+}
+
+unit print_board([]bool board) {
+    let y: int = 0;
+    for y < height() {
+        let x: int = 0;
+        for x < width() {
+            printf(if get(board, x, y) { "#" } else { " " });
+            x = x + 1;
+        };
+        printf("\n");
+        y = y + 1;
+    }
+}
+
+unit clear() {
+    printf("\033[2J\033[H")
+}
+
+int main() {
+    let size: int = width() * height();
+    let board: []bool = make(bool, size);
+    let next: []bool = make(bool, size);
+
+	srand(time(0));
+
+	{
+		let idx: int = 0;
+		for idx < size {
+			board[idx] = (rand() % 2) == 1;
+			idx = idx + 1;
+		};
+	};
+
+    # glider
+    # set(board, 1, 0, true);
+    # set(board, 2, 1, true);
+    # set(board, 0, 2, true);
+    # set(board, 1, 2, true);
+    # set(board, 2, 2, true);
+
+    for true {
+        clear();
+        print_board(board);
+		usleep(100000);
+        next_gen(board, next);
+        let tmp: []bool = board;
+        board = next;
+        next = tmp;
+    };
+
+    release(board);
+    release(next);
+    0
+}
