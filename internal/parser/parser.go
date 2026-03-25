@@ -21,7 +21,7 @@ type ParseError struct {
 }
 
 func (e ParseError) Error() string {
-	return fmt.Sprintf("%s ParseError: %s", e.Position.String(), e.Message)
+	return fmt.Sprintf("%s ParseError: %s\n%s", e.Position.String(), e.Message, e.Position.Snippet(1))
 }
 
 // parseError creates a new ParseError.
