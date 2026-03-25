@@ -12,21 +12,22 @@ func _() {
 	_ = x[Subtraction-1]
 	_ = x[Multiplication-2]
 	_ = x[Division-3]
-	_ = x[Equality-4]
-	_ = x[Inequality-5]
-	_ = x[Less-6]
-	_ = x[Greater-7]
-	_ = x[LessEqual-8]
-	_ = x[GreaterEqual-9]
-	_ = x[ShiftLeft-10]
-	_ = x[ShiftRight-11]
-	_ = x[LogicAnd-12]
-	_ = x[LogicOr-13]
+	_ = x[Modulo-4]
+	_ = x[Equality-5]
+	_ = x[Inequality-6]
+	_ = x[Less-7]
+	_ = x[Greater-8]
+	_ = x[LessEqual-9]
+	_ = x[GreaterEqual-10]
+	_ = x[ShiftLeft-11]
+	_ = x[ShiftRight-12]
+	_ = x[LogicAnd-13]
+	_ = x[LogicOr-14]
 }
 
-const _BinaryOperator_name = "AdditionSubtractionMultiplicationDivisionEqualityInequalityLessGreaterLessEqualGreaterEqualShiftLeftShiftRightLogicAndLogicOr"
+const _BinaryOperator_name = "AdditionSubtractionMultiplicationDivisionModuloEqualityInequalityLessGreaterLessEqualGreaterEqualShiftLeftShiftRightLogicAndLogicOr"
 
-var _BinaryOperator_index = [...]uint8{0, 8, 19, 33, 41, 49, 59, 63, 70, 79, 91, 100, 110, 118, 125}
+var _BinaryOperator_index = [...]uint8{0, 8, 19, 33, 41, 47, 55, 65, 69, 76, 85, 97, 106, 116, 124, 131}
 
 func (i BinaryOperator) String() string {
 	if i < 0 || i >= BinaryOperator(len(_BinaryOperator_index)-1) {

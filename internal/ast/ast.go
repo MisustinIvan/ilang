@@ -200,6 +200,7 @@ const (
 	Subtraction
 	Multiplication
 	Division
+	Modulo
 	Equality
 	Inequality
 	Less
@@ -217,6 +218,7 @@ var BinaryOperatorTokens = map[string]BinaryOperator{
 	"-":  Subtraction,
 	"*":  Multiplication,
 	"/":  Division,
+	"%":  Modulo,
 	"==": Equality,
 	"!=": Inequality,
 	"<":  Less,
@@ -234,6 +236,7 @@ var BinaryOperatorApplies = map[BinaryOperator]map[BasicType]bool{
 	Subtraction:    {Int: true, Float: true},
 	Multiplication: {Int: true, Float: true},
 	Division:       {Int: true, Float: true},
+	Modulo:         {Int: true},
 	Equality:       {Int: true, Float: true, Bool: true},
 	Inequality:     {Int: true, Float: true, Bool: true},
 	Less:           {Int: true, Float: true},

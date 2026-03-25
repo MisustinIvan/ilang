@@ -712,6 +712,10 @@ func (g *Generator) generateBinaryOperator(o ast.BinaryOperator) error {
 	case ast.Division:
 		g.writeln("cltd")
 		g.writeln("idiv %rbx")
+	case ast.Modulo:
+		g.writeln("cqto")
+		g.writeln("idiv %rbx")
+		g.writeln("mov %rdx, %rax")
 	case ast.Equality:
 		g.writeln("cmp %rbx, %rax")
 		g.writeln("sete %al")
@@ -911,6 +915,11 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 				g.writeln("# array copy assignment")
 				g.copyArray(offset, (t.Size()+7)/8)
 			}
+		case *ast.SliceType:
+			if err := a.Value.Accept(g); err != nil {
+				return err
+			}
+			g.storeSlice(offset)
 		default:
 			if err := a.Value.Accept(g); err != nil {
 				return err
