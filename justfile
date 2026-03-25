@@ -30,3 +30,6 @@ alias c := clean
 clean:
 	rm example.dot
 	rm graph.png
+
+generate-ts-parser:
+	cd ./tree-sitter-grammar && tree-sitter generate
