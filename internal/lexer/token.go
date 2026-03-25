@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"strings"
 )
 
 //go:generate stringer -type=TokenKind
@@ -16,9 +17,23 @@ const (
 )
 
 type Position struct {
-	File   string
-	Line   int
-	Column int
+	File       string
+	Line       int
+	Column     int
+	LineString string
+}
+
+func (p Position) Snippet(length int) string {
+	if p.LineString == "" {
+		return ""
+	}
+	lineNumber := fmt.Sprint(p.Line)
+	padding := strings.Repeat(" ", len(lineNumber))
+	displayLine := strings.ReplaceAll(p.LineString, "\t", "    ")
+	col := min(p.Column-1, len(p.LineString))
+	prefix := strings.ReplaceAll(p.LineString[:col], "\t", "    ")
+	caret := strings.Repeat(" ", len(prefix)) + strings.Repeat("^", max(length, 1))
+	return fmt.Sprintf("%s |\n%s | %s\n%s | %s", padding, lineNumber, displayLine, padding, caret)
 }
 
 func (p Position) String() string {

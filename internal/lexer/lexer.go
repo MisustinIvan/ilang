@@ -43,12 +43,13 @@ func NewSourceFile(filename, content string) SourceFile {
 }
 
 type Lexer struct {
-	source     SourceFile
-	source_len int
-	head       int
-	line       int
-	column     int
-	output     []Token
+	source      SourceFile
+	source_len  int
+	head        int
+	line        int
+	column      int
+	currentLine string
+	output      []Token
 }
 
 func New(source SourceFile) *Lexer {
@@ -64,9 +65,10 @@ func New(source SourceFile) *Lexer {
 
 func (l *Lexer) currentPos() Position {
 	return Position{
-		File:   l.source.filename,
-		Line:   l.line,
-		Column: l.column,
+		File:       l.source.filename,
+		Line:       l.line,
+		Column:     l.column,
+		LineString: l.currentLine,
 	}
 }
 
@@ -89,6 +91,12 @@ func (l *Lexer) next() {
 func (l *Lexer) newLine() {
 	l.column = 1
 	l.line++
+	end := strings.IndexByte(l.source.content[l.head:], '\n')
+	if end == -1 {
+		l.currentLine = l.source.content[l.head:]
+	} else {
+		l.currentLine = l.source.content[l.head : l.head+end]
+	}
 }
 
 func isWhitespace(c byte) bool {
@@ -101,6 +109,10 @@ func isDigit(x byte) bool {
 
 func isLetter(x byte) bool {
 	return (x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z') || x == '_'
+}
+
+func lexError(position Position, message string, args ...any) error {
+	return fmt.Errorf("%s %s\n%s", position.String(), fmt.Sprintf(message, args...), position.Snippet(1))
 }
 
 func (l *Lexer) Lex() ([]Token, error) {
@@ -134,7 +146,7 @@ func (l *Lexer) Lex() ([]Token, error) {
 			value := l.source.content[start:l.head]
 
 			if strings.Count(value, ".") > 1 {
-				return nil, fmt.Errorf("invalid float literal at %v", startPos)
+				return nil, lexError(startPos, "invalid float literal")
 			}
 
 			l.output = append(l.output, Token{
@@ -159,7 +171,7 @@ func (l *Lexer) Lex() ([]Token, error) {
 			}
 
 			if !l.headInBounds() {
-				return nil, fmt.Errorf("Unterminated string literal beginning at %v", startPos)
+				return nil, lexError(startPos, "unterminated string literal")
 			}
 
 			l.next() // consume closing quote
@@ -242,7 +254,7 @@ func (l *Lexer) Lex() ([]Token, error) {
 				continue
 			}
 
-			return nil, fmt.Errorf("Unexpected token %q at %v", value, startPos)
+			return nil, lexError(startPos, "unexpected token %q", value)
 		}
 	}
 
