@@ -1,0 +1,17 @@
+extrn unit printf(string format, ...)
+
+unit main() {
+	let array: []float = [0.5, 1.5, 6.9];
+
+	let x: float = 0.5;
+	let y: ^float = ^x;
+
+	printf("x = %f\n", x);
+	printf("@y = %f\n", @y);
+
+	@y = 10.0;
+
+	printf("@y = %f\n", @y);
+
+	printf("array[2] = %f\n", array[2]);
+}
