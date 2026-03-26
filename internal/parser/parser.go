@@ -592,7 +592,11 @@ func (p *Parser) ParsePrimary() (ast.Primary, error) {
 	case p.matchCurrent(lexer.Keyword, lexer.KeywordRelease):
 		return p.ParseRelease()
 	default:
-		return nil, fmt.Errorf("unexpected primary expression")
+		currentToken := p.peek()
+		if currentToken == nil {
+			return nil, fmt.Errorf("unexpected EOF")
+		}
+		return nil, parseError("unexpected primary expression", currentToken.Position)
 	}
 }
 
