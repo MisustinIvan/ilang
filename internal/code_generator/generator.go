@@ -72,6 +72,24 @@ func (g *Generator) storeSlice(offset int) {
 	g.writefln("mov %%rbx, -%d(%%rbp)", offset-8) // length
 }
 
+func (g *Generator) pushValue(t ast.Type) {
+	if t.Equals(ast.BasicTypePtr(ast.Float)) {
+		g.writeln("sub $8, %rsp")
+		g.writeln("movq %xmm0, (%rsp)")
+	} else {
+		g.writeln("push %rax")
+	}
+}
+
+func (g *Generator) popValue(t ast.Type) {
+	if t.Equals(ast.BasicTypePtr(ast.Float)) {
+		g.writeln("movsd (%rsp), %xmm0")
+		g.writeln("add $8, %rsp")
+	} else {
+		g.writeln("pop %rax")
+	}
+}
+
 // zeroArray zeroes qwords*8 bytes starting at -offset(%rbp) using rep stosq.
 func (g *Generator) zeroArray(offset, qwords int) {
 	g.writeln("xor %rax, %rax")
@@ -938,17 +956,26 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		if err := a.Value.Accept(g); err != nil {
 			return err
 		}
-		g.writeln("push %rax") // save value
+		g.pushValue(a.Value.GetType()) // save value
+
 		if err := target.Index.Accept(g); err != nil {
 			return err
 		}
-		g.writeln("push %rax") // save index
+		g.pushValue(target.Index.GetType()) // save index
+
 		if err := g.containerLoad(target.Identifier); err != nil {
 			return err
 		}
-		g.writeln("pop %rdx") // index
-		g.writeln("pop %rax") // value
-		g.writefln("mov %%rax, (%%rcx, %%rdx, %d)", target.GetType().Size())
+
+		g.writeln("pop %rdx")         // index
+		g.popValue(a.Value.GetType()) // value
+
+		if a.Value.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+			g.writefln("mov %%xmm0, (%%rcx, %%rdx, %d)", target.GetType().Size())
+		} else {
+			g.writefln("mov %%rax, (%%rcx, %%rdx, %d)", target.GetType().Size())
+		}
+
 	case *ast.Dereference:
 		// evaluate value
 		if err := a.Value.Accept(g); err != nil {
