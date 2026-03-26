@@ -22,7 +22,7 @@ token-dump example='test.ilang':
 alias r := run
 run example='test.ilang':
 	go run cmd/compiler/main.go -i ./examples/{{example}} -s example.s
-	gcc -g -no-pie -o example example.s
+	gcc -g -no-pie -o example example.s -lm
 	chmod +x example
 	./example
 
