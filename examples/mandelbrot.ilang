@@ -1,0 +1,48 @@
+extrn unit printf(string format, ...)
+extrn unit scanf(string format, ...)
+
+float square(float x) {
+	x*x
+}
+
+bool in_mandelbrot(float c_real, float c_imag, int max_iter) {
+	let z_real: float = 0.0;
+	let z_imag: float = 0.0;
+
+	for (max_iter > 0) && (square(z_real) + square(z_imag) < 4.0) {
+		let next_real: float = square(z_real) - square(z_imag) + c_real;
+		let next_imag: float = (2.0 * z_real * z_imag) + c_imag;
+		z_real = next_real;
+		z_imag = next_imag;
+		max_iter = max_iter - 1;
+	};
+
+	max_iter == 0
+}
+
+float read_float() {
+	printf("enter a float(0.1 for small window sizes): ");
+	let val: float = 0.0;
+	scanf("%lf", ^val);
+	printf("read value: %f\n", val);
+	val
+}
+
+unit main() {
+	let scale: float = read_float();
+	let y: float = -1.0;
+	let x: float = -2.0;
+	for y < 1.0 {
+		x = -2.0;
+		for x < 1.0 {
+			if in_mandelbrot(x, y, 200) {
+				printf("#");
+			} else {
+				printf(" ");
+			};
+			x = x + scale/2.0;
+		};
+		printf("\n");
+		y = y + scale;
+	};
+}
