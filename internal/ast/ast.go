@@ -231,6 +231,16 @@ var BinaryOperatorTokens = map[string]BinaryOperator{
 	"||": LogicOr,
 }
 
+var BinaryOperatorPrecedence = map[BinaryOperator]int{
+	LogicOr:  1,
+	LogicAnd: 2,
+	Equality: 3, Inequality: 3,
+	Less: 4, Greater: 4, LessEqual: 4, GreaterEqual: 4,
+	Addition: 5, Subtraction: 5,
+	Multiplication: 6, Division: 6, Modulo: 6,
+	ShiftLeft: 7, ShiftRight: 7,
+}
+
 var BinaryOperatorApplies = map[BinaryOperator]map[BasicType]bool{
 	Addition:       {Int: true, Float: true},
 	Subtraction:    {Int: true, Float: true},

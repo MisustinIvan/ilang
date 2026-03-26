@@ -362,7 +362,7 @@ func (p *Parser) ParseExpression() (ast.Expression, error) {
 			assignment.SetPosition(idx.GetPosition())
 			return assignment, nil
 		} else {
-			return p.parseBinary(idx)
+			return p.parseBinary(idx, 0)
 		}
 	default:
 		return p.ParseValue()
@@ -513,7 +513,7 @@ func (p *Parser) ParseValue() (ast.Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return p.parseBinary(unary)
+		return p.parseBinary(unary, 0)
 	}
 
 	primary, err := p.ParsePrimary()
@@ -521,36 +521,34 @@ func (p *Parser) ParseValue() (ast.Value, error) {
 		return nil, err
 	}
 
-	return p.parseBinary(primary)
+	return p.parseBinary(primary, 0)
 }
 
-func (p *Parser) parseBinary(left ast.Primary) (ast.Value, error) {
-	if p.matchCurrent(lexer.Operator, "") {
-		operator_tk, err := p.Expect(lexer.Operator, "")
+func (p *Parser) parseBinary(left ast.Value, minPrec int) (ast.Value, error) {
+	for {
+		operatorToken := p.peek()
+		if operatorToken == nil || operatorToken.Kind != lexer.Operator {
+			break
+		}
+		operator := ast.BinaryOperatorTokens[operatorToken.Value]
+		prec := ast.BinaryOperatorPrecedence[operator]
+		if prec < minPrec {
+			break
+		}
+		p.next() // consume operator
+		right, err := p.ParsePrimary()
 		if err != nil {
 			return nil, err
 		}
-
-		operator, ok := ast.BinaryOperatorTokens[operator_tk.Value]
-		if !ok {
-			return nil, fmt.Errorf("unexpected binary operator %v", operator_tk)
-		}
-
-		right, err := p.ParseValue()
+		// parse higher-precedence operators on the right first
+		right, err = p.parseBinary(right, prec+1)
 		if err != nil {
 			return nil, err
 		}
-
-		binary := &ast.Binary{
-			Left:     left,
-			Operator: operator,
-			Right:    right,
-		}
+		binary := &ast.Binary{Left: left, Operator: operator, Right: right}
 		binary.SetPosition(left.GetPosition())
-
-		return binary, nil
+		left = binary
 	}
-
 	return left, nil
 }
 
