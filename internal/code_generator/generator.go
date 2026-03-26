@@ -3,6 +3,7 @@ package code_generator
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/MisustinIvan/ilang/internal/ast"
@@ -14,11 +15,12 @@ func generatorError(position lexer.Position, msg string, args ...any) error {
 }
 
 type functionContext struct {
-	currentDecl        *ast.Declaration // current function declaration ast node
-	locals             map[any]int      // maps a local identifier or node to a stack offset
-	stackOffset        int              // total stack offset of the function to allocate memory on the stack
-	argsGenerated      int              // how many function arguments had their code generated
-	floatArgsGenerated int              // how many float function arguments had their code generated
+	currentDecl         *ast.Declaration // current function declaration ast node
+	locals              map[any]int      // maps a local identifier or node to a stack offset
+	stackOffset         int              // total stack offset of the function to allocate memory on the stack
+	intArgsGenerated    int              // how many integer function arguments had their code generated
+	floatArgsGenerated  int              // how many float function arguments had their code generated
+	stackSlotsGenerated int              // how many stack slots had their local-move code generated
 }
 
 type Generator struct {
@@ -331,9 +333,9 @@ func (g *Generator) VisitDeclaration(d *ast.Declaration) error {
 	return err
 }
 
-// storeNthArg expects the stored value in %rax. It stores it for according to
+// storeNthIntArg expects the stored value in %rax. It stores it for according to
 // the System V AMD64 ABI.
-func (g *Generator) storeNthArg(n int) {
+func (g *Generator) storeNthIntArg(n int) {
 	switch n {
 	case 0:
 		g.writeln("mov %rax, %rdi")
@@ -348,13 +350,13 @@ func (g *Generator) storeNthArg(n int) {
 	case 5:
 		g.writeln("mov %rax, %r9")
 	default:
-		panic(fmt.Sprintf("storeNthArg called with stack slot %d", n))
+		panic(fmt.Sprintf("storeNthIntArg called with stack slot %d", n))
 	}
 }
 
-// loadNthArg loads the n-th argument to a given local offset according to
+// loadNthArg loads the n-th int argument to a given local offset according to
 // the System V AMD64 ABI
-func (g *Generator) loadNthArg(n, offset int) {
+func (g *Generator) loadNthIntArg(n, offset int) {
 	switch n {
 	case 0:
 		g.writefln("mov %%rdi, -%d(%%rbp)", offset)
@@ -369,10 +371,7 @@ func (g *Generator) loadNthArg(n, offset int) {
 	case 5:
 		g.writefln("mov %%r9, -%d(%%rbp)", offset)
 	default:
-		// stack args sit at 16(%rbp), 24(%rbp), ... in the callee
-		stackOffset := 16 + (n-6)*8
-		g.writefln("mov %d(%%rbp), %%rax", stackOffset)
-		g.writefln("mov %%rax, -%d(%%rbp)", offset)
+		panic("unexpected int register")
 	}
 }
 
@@ -387,9 +386,7 @@ func (g *Generator) loadNthFloatArg(n, offset int) {
 	if n <= 7 {
 		g.writefln("movsd %%xmm%d, -%d(%%rbp)", n, offset)
 	} else {
-		stackOffset := 16 + (n-8)*8
-		g.writefln("movsd %d(%%rbp), %%xmm0", stackOffset)
-		g.writefln("movsd %%xmm0, -%d(%%rbp)", offset)
+		panic("unexpected float register")
 	}
 }
 
@@ -402,31 +399,69 @@ func (g *Generator) isArgument(id *ast.Identifier) bool {
 	return false
 }
 
+func (g *Generator) loadStackSlot(slotIndex, localOffset int, isFloat bool) {
+	stackOffset := 16 + (slotIndex * 8)
+
+	if isFloat {
+		g.writefln("movq %d(%%rbp), %%xmm0", stackOffset)
+		g.writefln("movq %%xmm0, -%d(%%rbp)", localOffset)
+	} else {
+		g.writefln("mov %d(%%rbp), %%rax", stackOffset)
+		g.writefln("mov %%rax, -%d(%%rbp)", localOffset)
+	}
+}
+
 // VisitArgument moves an incoming argument from its ABI register(s) to the stack.
 // Arrays and slices occupy two consecutive registers/locations: (length, pointer).
 func (g *Generator) VisitArgument(a *ast.Argument) error {
 	offset := g.ctx.locals[a.Identifier]
+
 	switch t := a.Type.(type) {
-	case *ast.SliceType, *ast.ArrayType:
-		g.loadNthArg(g.ctx.argsGenerated, offset)
-		g.ctx.argsGenerated++
-		g.loadNthArg(g.ctx.argsGenerated, offset-8)
-		g.ctx.argsGenerated++
-		if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
-			lenOffset := g.ctx.locals[st.LengthIdentifier]
-			g.loadNthArg(g.ctx.argsGenerated-1, lenOffset)
-		}
-	case *ast.BasicType:
+	case *ast.BasicType, *ast.PointerType:
 		if t.Equals(ast.BasicTypePtr(ast.Float)) {
-			g.loadNthFloatArg(g.ctx.floatArgsGenerated, offset)
-			g.ctx.floatArgsGenerated++
+			if g.ctx.floatArgsGenerated < 8 {
+				g.loadNthFloatArg(g.ctx.floatArgsGenerated, offset)
+				g.ctx.floatArgsGenerated++
+			} else {
+				g.loadStackSlot(g.ctx.stackSlotsGenerated, offset, true)
+				g.ctx.stackSlotsGenerated++
+			}
 		} else {
-			g.loadNthArg(g.ctx.argsGenerated, offset)
-			g.ctx.argsGenerated++
+			if g.ctx.intArgsGenerated < 6 {
+				g.loadNthIntArg(g.ctx.intArgsGenerated, offset)
+				g.ctx.intArgsGenerated++
+			} else {
+				g.loadStackSlot(g.ctx.stackSlotsGenerated, offset, false)
+				g.ctx.stackSlotsGenerated++
+			}
 		}
-	default:
-		g.loadNthArg(g.ctx.argsGenerated, offset)
-		g.ctx.argsGenerated++
+
+	case *ast.SliceType, *ast.ArrayType:
+		if g.ctx.intArgsGenerated < 6 {
+			g.loadNthIntArg(g.ctx.intArgsGenerated, offset)
+			g.ctx.intArgsGenerated++
+		} else {
+			g.loadStackSlot(g.ctx.stackSlotsGenerated, offset, false)
+			g.ctx.stackSlotsGenerated++
+		}
+
+		if g.ctx.intArgsGenerated < 6 {
+			g.loadNthIntArg(g.ctx.intArgsGenerated, offset-8)
+			g.ctx.intArgsGenerated++
+
+			if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
+				lenOffset := g.ctx.locals[st.LengthIdentifier]
+				g.loadNthIntArg(g.ctx.intArgsGenerated-1, lenOffset)
+			}
+		} else {
+			g.loadStackSlot(g.ctx.stackSlotsGenerated, offset-8, false)
+			g.ctx.stackSlotsGenerated++
+			if st, ok := t.(*ast.SliceType); ok && st.LengthIdentifier != nil {
+				lenOffset := g.ctx.locals[st.LengthIdentifier]
+				g.loadStackSlot(g.ctx.stackSlotsGenerated-1, lenOffset, false)
+			}
+		}
+
 	}
 	return nil
 }
@@ -436,7 +471,7 @@ func (g *Generator) VisitArrayType(t *ast.ArrayType) error     { return nil }
 func (g *Generator) VisitSliceType(t *ast.SliceType) error     { return nil }
 func (g *Generator) VisitPointerType(t *ast.PointerType) error { return nil }
 
-// VisitReturn moves the return value to %rax (and %rbx for slices/arrays) and returns.
+// VisitReturn moves the return value to %rax/%xmm0 (and %rbx for slices/arrays) and returns.
 func (g *Generator) VisitReturn(r *ast.Return) error {
 	g.writeln("# return")
 	if r.Value != nil {
@@ -558,14 +593,12 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 		g.writefln("mov $%d, %%rbx", t.Length)
 	case *ast.SliceType:
 		g.loadSlice(offset)
-	case *ast.BasicType:
+	case *ast.BasicType, *ast.PointerType:
 		if t.Equals(ast.BasicTypePtr(ast.Float)) {
 			g.loadFloatScalar(offset)
 		} else {
 			g.loadScalar(offset)
 		}
-	case *ast.PointerType:
-		g.loadScalar(offset)
 	default:
 		return generatorError(i.GetPosition(), "unexpected type %s", i.Resolved.GetType().String())
 	}
@@ -582,101 +615,125 @@ func (g *Generator) VisitIdentifier(i *ast.Identifier) error {
 func (g *Generator) VisitCall(c *ast.Call) error {
 	g.writeln("# call")
 
-	// Count physical slots separately for ints and floats
-	intArgCount := 0
-	floatArgCount := 0
+	// pre-pass - map every argument to destination
+	type argDest struct {
+		isFloat bool
+		isStack bool
+		regNum  int
+	}
+
+	slots := []argDest{}
+
+	intRegsUsed := 0
+	floatRegsUsed := 0
+	stackSlotsUsed := 0
+
 	for _, arg := range c.Arguments {
 		switch t := arg.GetType().(type) {
-		case *ast.BasicType:
-			if t.Equals(ast.BasicTypePtr(ast.Float)) {
-				floatArgCount++
+		case *ast.BasicType, *ast.PointerType:
+			isFloat := t.Equals(ast.BasicTypePtr(ast.Float))
+
+			if isFloat {
+				if floatRegsUsed < 8 {
+					slots = append(slots, argDest{isFloat: true, isStack: false, regNum: floatRegsUsed})
+					floatRegsUsed++
+				} else {
+					slots = append(slots, argDest{isFloat: true, isStack: true})
+					stackSlotsUsed++
+				}
 			} else {
-				intArgCount++
+				if intRegsUsed < 6 {
+					slots = append(slots, argDest{isFloat: false, isStack: false, regNum: intRegsUsed})
+					intRegsUsed++
+				} else {
+					slots = append(slots, argDest{isFloat: false, isStack: true})
+					stackSlotsUsed++
+				}
 			}
-		case *ast.PointerType:
-			intArgCount++
 		case *ast.ArrayType, *ast.SliceType:
-			intArgCount += 2
+			for range 2 {
+				if intRegsUsed < 6 {
+					slots = append(slots, argDest{isFloat: false, isStack: false, regNum: intRegsUsed})
+					intRegsUsed++
+				} else {
+					slots = append(slots, argDest{isFloat: false, isStack: true})
+					stackSlotsUsed++
+				}
+			}
 		default:
-			return generatorError(arg.GetPosition(), "unsupported argument type %s", arg.GetType().String())
+			panic("unexpected argument type")
 		}
 	}
 
-	// Evaluate right to left, pushing everything onto the stack.
-	// Floats are pushed as raw 8-byte values.
-	for i := len(c.Arguments) - 1; i >= 0; i-- {
-		arg := c.Arguments[i]
-		g.writefln("# argument %d", i)
+	// evaluate everything right-to-left, pushing everything onto the stack
+	for _, arg := range slices.Backward(c.Arguments) {
+		if err := arg.Accept(g); err != nil {
+			return err
+		}
 		switch t := arg.GetType().(type) {
-		case *ast.BasicType:
-			if err := arg.Accept(g); err != nil {
-				return err
-			}
-			if *t == ast.Float {
-				// move xmm0 to integer register so we can push it
+		case *ast.BasicType, *ast.PointerType:
+			if t.Equals(ast.BasicTypePtr(ast.Float)) {
 				g.writeln("movq %xmm0, %rax")
 			}
 			g.writeln("push %rax")
-		case *ast.PointerType:
-			if err := arg.Accept(g); err != nil {
-				return err
-			}
-			g.writeln("push %rax")
-		case *ast.ArrayType, *ast.SliceType:
-			if err := arg.Accept(g); err != nil {
-				return err
-			}
+		case *ast.SliceType, *ast.ArrayType:
 			g.writeln("push %rbx # length")
 			g.writeln("push %rax # pointer")
+		default:
+			panic("unexpected argument type")
 		}
 	}
 
-	// pop into the correct registers -
-	// integer and float args have independent register sequences,
-	// so we track them separately while iterating left to right
-	intSlot := 0
-	floatSlot := 0
-	for _, arg := range c.Arguments {
-		switch t := arg.GetType().(type) {
-		case *ast.BasicType:
-			g.writeln("pop %rax")
-			if *t == ast.Float {
-				g.storeNthFloatArg(floatSlot)
-				floatSlot++
+	// move register arguments to registers
+	for i, dest := range slots {
+		if !dest.isStack {
+			offset := i * 8
+			g.writefln("mov %d(%%rsp), %%rax", offset)
+			if dest.isFloat {
+				g.storeNthFloatArg(dest.regNum)
 			} else {
-				g.storeNthArg(intSlot)
-				intSlot++
+				g.storeNthIntArg(dest.regNum)
 			}
-		case *ast.PointerType:
-			g.writeln("pop %rax")
-			g.storeNthArg(intSlot)
-			intSlot++
-		case *ast.ArrayType, *ast.SliceType:
-			g.writeln("pop %rax # pointer")
-			g.storeNthArg(intSlot)
-			intSlot++
-			g.writeln("pop %rax # length")
-			g.storeNthArg(intSlot)
-			intSlot++
 		}
 	}
 
-	// For variadic functions %rax must contain the number of float args
+	// compact the rest of the stack slots
+	totalSlots := len(slots)
+	adjustment := (totalSlots - stackSlotsUsed) * 8
+	stackArgIndex := stackSlotsUsed - 1
+
+	for i := totalSlots - 1; i >= 0; i-- {
+		dest := slots[i]
+		if dest.isStack {
+			srcOffset := i * 8
+			destOffset := adjustment + (stackArgIndex * 8)
+
+			if srcOffset != destOffset { // optimize out unnecessary moves
+				g.writefln("mov %d(%%rsp), %%rax", srcOffset)
+				g.writefln("mov %%rax, %d(%%rsp)", destOffset)
+			}
+			stackArgIndex--
+		}
+	}
+
+	// discard register argument slots
+	if adjustment > 0 {
+		g.writefln("add $%d, %%rsp", adjustment)
+	}
+
 	if g.externals[c.Identifier.Resolved] {
-		g.writefln("mov $%d, %%rax", floatArgCount)
+		g.writefln("mov $%d, %%rax", floatRegsUsed)
 		g.writefln("call %s@PLT", c.Identifier.Name)
 	} else {
 		g.writeln("xor %rax, %rax")
 		g.writefln("call %s", c.Identifier.Name)
 	}
 
-	// Clean up any stack args
-	excessInt := max(intArgCount-6, 0)
-	excessFloat := max(floatArgCount-8, 0)
-	excess := excessInt + excessFloat
-	if excess > 0 {
-		g.writefln("add $%d, %%rsp", excess*8)
+	// clean up the remaining stack arguments
+	if stackSlotsUsed > 0 {
+		g.writefln("add $%d, %%rsp", stackSlotsUsed*8)
 	}
+
 	return nil
 }
 
@@ -942,7 +999,7 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 				return err
 			}
 			g.storeSlice(offset)
-		default:
+		default: // scalar type
 			if err := a.Value.Accept(g); err != nil {
 				return err
 			}
@@ -982,13 +1039,20 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 			return err
 		}
 		// save scalar value
-		g.writeln("push %rax")
+		g.pushValue(a.Value.GetType())
 		// evaluate pointer to %rax
 		if err := target.Value.Accept(g); err != nil {
 			return err
 		}
-		g.writeln("pop %rbx")
-		g.writeln("mov %rbx, (%rax)")
+
+		if a.Value.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+			g.writeln("movsd (%rsp), %xmm0")
+			g.writeln("add $8, %rsp")
+			g.writeln("movq %xmm0, (%rax)")
+		} else {
+			g.writeln("pop %rbx")
+			g.writeln("mov %rbx, (%rax)")
+		}
 
 	default:
 		return generatorError(a.Position, "invalid assignment target")
@@ -1000,7 +1064,13 @@ func (g *Generator) VisitDereference(d *ast.Dereference) error {
 	if err := d.Value.Accept(g); err != nil {
 		return err
 	}
-	g.writeln("mov (%rax), %rax")
+
+	if d.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+		g.writeln("movsd (%rax), %xmm0")
+	} else {
+		g.writeln("mov (%rax), %rax")
+	}
+
 	return nil
 }
 
@@ -1056,11 +1126,16 @@ func (g *Generator) generateArrayLiteralInit(a *ast.ArrayLiteral, baseOffset int
 		return generatorError(a.GetPosition(), "unexpected empty array literal ")
 	}
 	elementSize := a.Values[0].GetType().Size()
+	moveInstruction := "mov %rax"
+	if a.Values[0].GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+		moveInstruction = "movq %xmm0"
+	}
+
 	for i, val := range a.Values {
 		if err := val.Accept(g); err != nil {
 			return err
 		}
-		g.writefln("mov %%rax, -%d(%%rbp)", baseOffset-(i*elementSize))
+		g.writefln("%s, -%d(%%rbp)", moveInstruction, baseOffset-(i*elementSize))
 	}
 	return nil
 }
@@ -1080,7 +1155,7 @@ func (g *Generator) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	return nil
 }
 
-// VisitIndex generates an indexed load, leaving the element value in %rax.
+// VisitIndex generates an indexed load, leaving the element value in %rax or %xmm0.
 func (g *Generator) VisitIndex(i *ast.Index) error {
 	g.writeln("# index")
 	if err := i.Index.Accept(g); err != nil {
@@ -1091,6 +1166,10 @@ func (g *Generator) VisitIndex(i *ast.Index) error {
 		return err
 	}
 	g.writeln("pop %rdx")
-	g.writefln("mov (%%rcx, %%rdx, %d), %%rax", i.GetType().Size())
+	if i.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+		g.writefln("movsd (%%rcx, %%rdx, %d), %%xmm0", i.GetType().Size())
+	} else {
+		g.writefln("mov (%%rcx, %%rdx, %d), %%rax", i.GetType().Size())
+	}
 	return nil
 }
