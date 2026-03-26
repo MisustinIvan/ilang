@@ -1,0 +1,10 @@
+extrn unit printf(string format, ...)
+
+unit break_me(int i1, int i2, int i3, int i4, int i5, int i6, int i7, float f1, float f2, float f3, float f4, float f5, float f6, float f7, float f8, float f9) {
+	printf("i7 (should be 7): %d\n", i7);
+	printf("f9 (should be 9.0): %f\n", f9);
+}
+
+unit main() {
+	break_me(1, 2, 3, 4, 5, 6, 7, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
+}
