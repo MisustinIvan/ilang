@@ -234,6 +234,8 @@ func (g *Generator) Generate() (string, error) {
 	g.writeln("")
 	g.writeln("# data section")
 	g.writeln(".data")
+	g.writeln(".const_neg_one:")
+	g.writeln(".double -1.0")
 	for id, l := range g.constants {
 		switch {
 		case l.GetType().Equals(ast.BasicTypePtr(ast.String)):
@@ -360,10 +362,7 @@ func (g *Generator) storeNthFloatArg(n int) {
 	if n > 7 {
 		panic(fmt.Sprintf("storeNthFloatArg called with slot %d", n))
 	}
-	if n > 0 {
-		g.writefln("movsd %%xmm0, %%xmm%d", n)
-	}
-	// for n==0 arg is already in %xmm0
+	g.writefln("movq %%rax, %%xmm%d", n)
 }
 
 func (g *Generator) loadNthFloatArg(n, offset int) {
@@ -622,13 +621,11 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 	for _, arg := range c.Arguments {
 		switch t := arg.GetType().(type) {
 		case *ast.BasicType:
+			g.writeln("pop %rax")
 			if *t == ast.Float {
-				g.writeln("pop %rax")
-				g.writeln("movq %rax, %xmm0")
 				g.storeNthFloatArg(floatSlot)
 				floatSlot++
 			} else {
-				g.writeln("pop %rax")
 				g.storeNthArg(intSlot)
 				intSlot++
 			}
@@ -688,7 +685,12 @@ func (g *Generator) VisitUnary(u *ast.Unary) error {
 	}
 	switch u.Operator {
 	case ast.Inversion:
-		g.writeln("imul $-1, %rax")
+		if u.Value.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+			g.writeln("movsd .const_neg_one(%rip), %xmm1")
+			g.writeln("mulsd %xmm1, %xmm0")
+		} else {
+			g.writeln("imul $-1, %rax")
+		}
 	case ast.LogicNegation:
 		g.writeln("cmp $0, %rax")
 		g.writeln("sete %al")
@@ -702,6 +704,7 @@ func (g *Generator) VisitUnary(u *ast.Unary) error {
 // generateBinaryOperator emits the instruction(s) for the given operator.
 // Expects: left operand in %rax, right operand in %rbx.
 func (g *Generator) generateBinaryOperator(o ast.BinaryOperator) error {
+	g.writeln("# non-float binary operator")
 	switch o {
 	case ast.Addition:
 		g.writeln("add %rbx, %rax")
@@ -758,6 +761,7 @@ func (g *Generator) generateBinaryOperator(o ast.BinaryOperator) error {
 
 // the same as with non-float types but with %xmm0 and %xmm1
 func (g *Generator) generateFloatBinaryOperator(o ast.BinaryOperator) error {
+	g.writeln("# float binary operator")
 	switch o {
 	case ast.Addition:
 		g.writeln("addsd %xmm1, %xmm0")
@@ -802,7 +806,7 @@ func (g *Generator) generateFloatBinaryOperator(o ast.BinaryOperator) error {
 // by storing the intermediate value on the stack and using %xmm0 and %xmm1)
 func (g *Generator) VisitBinary(u *ast.Binary) error {
 	g.writeln("# binary")
-	if u.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+	if u.Left.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
 		if err := u.Left.Accept(g); err != nil {
 			return err
 		}
