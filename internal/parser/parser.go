@@ -307,7 +307,7 @@ func (p *Parser) ParseBlock() (*ast.Block, error) {
 		} else if ImplicitReturn == nil {
 			ImplicitReturn = expr
 		} else {
-			return nil, fmt.Errorf("unexpected expression at %v", expr.GetPosition())
+			return nil, parseError("unexpected expression after implicit return, maybe you forgot a semicolon?", expr.GetPosition())
 		}
 	}
 
