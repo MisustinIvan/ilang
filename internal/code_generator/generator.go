@@ -17,7 +17,6 @@ func generatorError(position lexer.Position, msg string, args ...any) error {
 type functionContext struct {
 	currentDecl         *ast.Declaration // current function declaration ast node
 	locals              map[any]int      // maps a local identifier or node to a stack offset
-	stackOffset         int              // total stack offset of the function to allocate memory on the stack
 	intArgsGenerated    int              // how many integer function arguments had their code generated
 	floatArgsGenerated  int              // how many float function arguments had their code generated
 	stackSlotsGenerated int              // how many stack slots had their local-move code generated
@@ -120,7 +119,7 @@ func New(prog *ast.Program) *Generator {
 }
 
 // newContext creates a function context with pre-computed stack offsets.
-func (g *Generator) newContext(d *ast.Declaration) {
+func (g *Generator) newContext(d *ast.Declaration) int {
 	locals, stackOffset := findLocals(d)
 	if stackOffset%16 != 0 {
 		stackOffset += 16 - (stackOffset % 16)
@@ -128,8 +127,8 @@ func (g *Generator) newContext(d *ast.Declaration) {
 	g.ctx = &functionContext{
 		currentDecl: d,
 		locals:      locals,
-		stackOffset: stackOffset,
 	}
+	return stackOffset
 }
 
 func (g *Generator) Generate() (string, error) {
@@ -187,12 +186,12 @@ func (g *Generator) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	return nil
 }
 
-func (g *Generator) generatePrologue() {
+func (g *Generator) generatePrologue(offset int) {
 	g.writeln("# function prologue")
 	g.writefln("%s:", g.ctx.currentDecl.Identifier.Name)
 	g.writeln("push %rbp")
 	g.writeln("mov %rsp, %rbp")
-	g.writefln("sub $%d, %%rsp", g.ctx.stackOffset)
+	g.writefln("sub $%d, %%rsp", offset)
 	g.writeln("")
 }
 
@@ -205,8 +204,8 @@ func (g *Generator) generateEpilogue() {
 
 func (g *Generator) VisitDeclaration(d *ast.Declaration) error {
 	var err error
-	g.newContext(d)
-	g.generatePrologue()
+	offset := g.newContext(d)
+	g.generatePrologue(offset)
 	for _, arg := range d.Args {
 		err = errors.Join(err, arg.Accept(g))
 	}
