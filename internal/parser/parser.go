@@ -536,7 +536,15 @@ func (p *Parser) parseBinary(left ast.Value, minPrec int) (ast.Value, error) {
 			break
 		}
 		p.next() // consume operator
-		right, err := p.ParsePrimary()
+		var right ast.Value
+		var err error
+		if p.matchCurrent(lexer.Operator, "@") {
+			right, err = p.ParseDereference()
+		} else if p.matchCurrent(lexer.Operator, "") {
+			right, err = p.ParseUnary()
+		} else {
+			right, err = p.ParsePrimary()
+		}
 		if err != nil {
 			return nil, err
 		}

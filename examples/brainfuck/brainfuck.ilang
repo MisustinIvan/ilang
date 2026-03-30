@@ -35,7 +35,7 @@ int main() {
 let ch: int = getchar();
 	# stop at newline or EOF
 	for !(ch == 10) {
-		if ch == (-1) {
+		if ch == -1 {
 			# force the loop to terminate cleanly
 			ch = 10;
 		} else {
@@ -63,7 +63,7 @@ let ch: int = getchar();
 		# ,
 		if cmd == 44 {
 			let in_char: int = getchar();
-			if in_char == (-1) {
+			if in_char == -1 {
 				# Break the loop on EOF
 				tape[dp] = 0;
 			} else {
