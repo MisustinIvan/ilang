@@ -27,17 +27,22 @@ int find_open([]int prog, int pc) {
 }
 
 int main() {
-	let prog: []int = make(int, 4096);
-	let tape: []int = make(int, 30000);
+	let prog: [prog_len]int = make(int, 4096);
+	let tape: [tape_len]int = make(int, 30000);
 	let dp: int = 0;
 	let pc: int = 0;
 
-	let ch: int = getchar();
-	# stop at newline
+let ch: int = getchar();
+	# stop at newline or EOF
 	for !(ch == 10) {
-		prog[pc] = ch;
-		pc = pc + 1;
-		ch = getchar();
+		if ch == (-1) {
+			# force the loop to terminate cleanly
+			ch = 10;
+		} else {
+			prog[pc] = ch;
+			pc = pc + 1;
+			ch = getchar();
+		};
 	};
 
 	# reset program counter
@@ -45,18 +50,34 @@ int main() {
 
 	for !(prog[pc] == 0) {
 		let cmd: int = prog[pc];
-		if cmd == 62 { dp = dp + 1; };				# >
-		if cmd == 60 { dp = dp - 1; };				# <
-		if cmd == 43 { tape[dp] = (tape[dp] + 1) % 256; };	# +
-		if cmd == 45 { tape[dp] = (tape[dp] - 1 + 256) % 256; };	# -
-		if cmd == 46 { putchar(tape[dp]); };		# .
-		if cmd == 44 { tape[dp] = getchar(); };		# ,
-		if cmd == 91 {								# [
+		# >
+		if cmd == 62 && dp < tape_len { dp = dp + 1; };
+		# <
+		if cmd == 60 && dp > 0 { dp = dp - 1; };
+		# +
+		if cmd == 43 { tape[dp] = (tape[dp] + 1) % 256; };
+		# -
+		if cmd == 45 { tape[dp] = (tape[dp] - 1 + 256) % 256; };
+		# .
+		if cmd == 46 { putchar(tape[dp]); };
+		# ,
+		if cmd == 44 {
+			let in_char: int = getchar();
+			if in_char == (-1) {
+				# Break the loop on EOF
+				tape[dp] = 0;
+			} else {
+				tape[dp] = in_char % 256;
+			};
+		};
+		# [
+		if cmd == 91 {
 			if tape[dp] == 0 {
 				pc = find_close(prog, pc);
 			};
 		};
-		if cmd == 93 {								# ]
+		# ]
+		if cmd == 93 {
 			if !(tape[dp] == 0) {
 				pc = find_open(prog, pc);
 			};

@@ -44,8 +44,15 @@ generate-ts-parser:
 
 
 # Run a brainfuck program from the ./examples/brainfuck directory using an interpreter written in ilang
-brainfuck program="sierpinski.bf":
+brainfuck_example program="sierpinski":
 	go run cmd/compiler/main.go -i ./examples/brainfuck/brainfuck.ilang -s brainfuck.s
 	gcc -g -no-pie -o brainfuck brainfuck.s -lm
 	chmod +x brainfuck
-	cat ./examples/brainfuck/{{program}} | ./brainfuck
+	cat ./examples/brainfuck/{{program}}.bf | ./brainfuck
+
+# Run the brainfuck interpreter
+brainfuck:
+	go run cmd/compiler/main.go -i ./examples/brainfuck/brainfuck.ilang -s brainfuck.s
+	gcc -g -no-pie -o brainfuck brainfuck.s -lm
+	chmod +x brainfuck
+	./brainfuck

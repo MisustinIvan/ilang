@@ -536,7 +536,7 @@ func (p *Parser) parseBinary(left ast.Value, minPrec int) (ast.Value, error) {
 			break
 		}
 		p.next() // consume operator
-		right, err := p.ParseValue()
+		right, err := p.ParsePrimary()
 		if err != nil {
 			return nil, err
 		}
