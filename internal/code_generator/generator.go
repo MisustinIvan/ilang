@@ -37,16 +37,6 @@ func (g *Generator) label() string {
 	return fmt.Sprintf(".label_%d", g.labelCount)
 }
 
-func (g *Generator) push(reg string) {
-	g.writefln("push %s", reg)
-	g.ctx.stackDepth += 8
-}
-
-func (g *Generator) pop(reg string) {
-	g.writefln("push %s", reg)
-	g.ctx.stackDepth -= 8
-}
-
 // delta > 0 means sub (grow stack), delta < 0 means add (shrink)
 func (g *Generator) adjustStack(delta int) {
 	if delta > 0 {
@@ -94,21 +84,41 @@ func (g *Generator) storeSlice(offset int) {
 	g.writefln("mov %%rbx, -%d(%%rbp)", offset-8) // length
 }
 
+func (g *Generator) pushIntReg(reg string) {
+	g.ctx.stackDepth += 8
+	g.writefln("push %s", reg)
+}
+
+func (g *Generator) popIntReg(reg string) {
+	g.ctx.stackDepth -= 8
+	g.writefln("pop %s", reg)
+}
+
+func (g *Generator) pushFloatReg(reg string) {
+	g.ctx.stackDepth += 8
+	g.writeln("sub $8, %rsp")
+	g.writefln("movq %s, (%%rsp)", reg)
+}
+
+func (g *Generator) popFloatReg(reg string) {
+	g.ctx.stackDepth -= 8
+	g.writefln("movsd (%%rsp), %s", reg)
+	g.writeln("add $8, %rsp")
+}
+
 func (g *Generator) pushValue(t ast.Type) {
 	if t.Equals(ast.BasicTypePtr(ast.Float)) {
-		g.writeln("sub $8, %rsp")
-		g.writeln("movq %xmm0, (%rsp)")
+		g.pushFloatReg("%xmm0")
 	} else {
-		g.writeln("push %rax")
+		g.pushIntReg("%rax")
 	}
 }
 
 func (g *Generator) popValue(t ast.Type) {
 	if t.Equals(ast.BasicTypePtr(ast.Float)) {
-		g.writeln("movsd (%rsp), %xmm0")
-		g.writeln("add $8, %rsp")
+		g.popFloatReg("%xmm0")
 	} else {
-		g.writeln("pop %rax")
+		g.popIntReg("%rax")
 	}
 }
 
@@ -210,9 +220,9 @@ func (g *Generator) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 func (g *Generator) generatePrologue(offset int) {
 	g.writeln("# function prologue")
 	g.writefln("%s:", g.ctx.currentDecl.Identifier.Name)
-	g.writeln("push %rbp")
+	g.writeln("push %rbp") // aligned at this point
 	g.writeln("mov %rsp, %rbp")
-	g.writefln("sub $%d, %%rsp", offset)
+	g.writefln("sub $%d, %%rsp", offset) // offset is aligned by 16
 	g.writeln("")
 }
 
@@ -578,10 +588,10 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 			if t.Equals(ast.BasicTypePtr(ast.Float)) {
 				g.writeln("movq %xmm0, %rax")
 			}
-			g.push("%rax")
+			g.pushIntReg("%rax")
 		case *ast.SliceType, *ast.ArrayType:
-			g.push("%rbx")
-			g.push("%rax")
+			g.pushIntReg("%rbx")
+			g.pushIntReg("%rax")
 		default:
 			panic("unexpected argument type")
 		}
@@ -799,25 +809,23 @@ func (g *Generator) VisitBinary(u *ast.Binary) error {
 		if err := u.Left.Accept(g); err != nil {
 			return err
 		}
-		g.writeln("sub $8, %rsp")
-		g.writeln("movsd %xmm0, (%rsp)") // save left
+		g.pushFloatReg("%xmm0") // save left
 		if err := u.Right.Accept(g); err != nil {
 			return err
 		}
-		g.writeln("movsd %xmm0, %xmm1")  // right to %xmm1
-		g.writeln("movsd (%rsp), %xmm0") // left to %xmm0
-		g.writeln("add $8, %rsp")
+		g.writeln("movsd %xmm0, %xmm1") // right to %xmm1
+		g.popFloatReg("%xmm0")          // left to %xmm0
 		return g.generateFloatBinaryOperator(u.Operator)
 	} else {
 		if err := u.Left.Accept(g); err != nil {
 			return err
 		}
-		g.writeln("push %rax")
+		g.pushIntReg("%rax")
 		if err := u.Right.Accept(g); err != nil {
 			return err
 		}
 		g.writeln("mov %rax, %rbx")
-		g.writeln("pop %rax")
+		g.popIntReg("%rax")
 		return g.generateBinaryOperator(u.Operator)
 	}
 }
@@ -932,13 +940,13 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		if err := target.Index.Accept(g); err != nil {
 			return err
 		}
-		g.pushValue(target.Index.GetType()) // save index
+		g.pushIntReg("%rax") // save index
 
 		if err := g.containerLoad(target.Identifier); err != nil {
 			return err
 		}
 
-		g.writeln("pop %rdx")         // index
+		g.popIntReg("%rdx")           // index
 		g.popValue(a.Value.GetType()) // value
 
 		if a.Value.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
@@ -960,11 +968,10 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 		}
 
 		if a.Value.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
-			g.writeln("movsd (%rsp), %xmm0")
-			g.writeln("add $8, %rsp")
+			g.popFloatReg("%xmm0")
 			g.writeln("movq %xmm0, (%rax)")
 		} else {
-			g.writeln("pop %rbx")
+			g.popIntReg("%rbx")
 			g.writeln("mov %rbx, (%rax)")
 		}
 
@@ -993,21 +1000,29 @@ func (g *Generator) VisitLoop(l *ast.Loop) error {
 	startLabel := g.label()
 	endLabel := g.label()
 
-	g.writeln("mov $0, %rax") // default if body never runs
+	// default if body never runs
+	if l.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
+		g.writeln("mov $0, %rax")
+		g.writeln("movq %rax, %xmm0")
+		g.writeln("mov $0, %rax")
+	} else {
+		g.writeln("mov $0, %rax")
+	}
+
 	g.writefln("%s:", startLabel)
-	g.writeln("push %rax") // save last result before condition clobbers it
+	g.pushValue(l.GetType()) // save last result before condition clobbers it
 	if err := l.Condition.Accept(g); err != nil {
 		return err
 	}
 	g.writeln("cmp $1, %rax")
 	g.writefln("jne %s", endLabel) // exit with saved value on stack
-	g.writeln("pop %rax")          // discard saved - body will produce new value
+	g.popValue(l.GetType())        // discard saved - body will produce new value
 	if err := l.Body.Accept(g); err != nil {
 		return err
 	}
 	g.writefln("jmp %s", startLabel)
 	g.writefln("%s:", endLabel)
-	g.writeln("pop %rax") // restore last body result (or 0 for no iterations)
+	g.popValue(l.GetType()) // restore last body result (or 0 for no iterations)
 	return nil
 }
 
@@ -1016,13 +1031,24 @@ func (g *Generator) VisitMake(m *ast.Make) error {
 		return err
 	}
 	// save length
-	g.writeln("push %rax")
+	g.pushIntReg("%rax")
 	// multiply by element size
 	g.writefln("imul $%d, %%rax", m.Type.Size())
 	// call malloc
 	g.writeln("mov %rax, %rdi")
+
+	misalignment := g.ctx.stackDepth % 16
+	if misalignment != 0 {
+		g.adjustStack(16 - misalignment)
+	}
+
 	g.writeln("call malloc@PLT")
-	g.writeln("pop %rbx") // length to %rbx
+
+	if misalignment != 0 {
+		g.adjustStack(-(16 - misalignment))
+	}
+
+	g.popIntReg("%rbx") // length to %rbx
 	return nil
 }
 
@@ -1030,7 +1056,18 @@ func (g *Generator) VisitRelease(r *ast.Release) error {
 	offset := g.ctx.locals[r.Value.Resolved]
 	g.loadSlice(offset) // ptr in %rax, length in %rbx
 	g.writeln("mov %rax, %rdi")
+
+	misalignment := g.ctx.stackDepth % 16
+	if misalignment != 0 {
+		g.adjustStack(16 - misalignment)
+	}
+
 	g.writeln("call free@PLT")
+
+	if misalignment != 0 {
+		g.adjustStack(-(16 - misalignment))
+	}
+
 	return nil
 }
 
@@ -1075,11 +1112,11 @@ func (g *Generator) VisitIndex(i *ast.Index) error {
 	if err := i.Index.Accept(g); err != nil {
 		return err
 	}
-	g.writeln("push %rax")
+	g.pushIntReg("%rax")
 	if err := g.containerLoad(i.Identifier); err != nil {
 		return err
 	}
-	g.writeln("pop %rdx")
+	g.popIntReg("%rdx")
 	if i.GetType().Equals(ast.BasicTypePtr(ast.Float)) {
 		g.writefln("movsd (%%rcx, %%rdx, %d), %%xmm0", i.GetType().Size())
 	} else {
