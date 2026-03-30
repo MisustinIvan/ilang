@@ -20,6 +20,7 @@ type functionContext struct {
 	intArgsGenerated    int              // how many integer function arguments had their code generated
 	floatArgsGenerated  int              // how many float function arguments had their code generated
 	stackSlotsGenerated int              // how many stack slots had their local-move code generated
+	stackDepth          int              // amount of bytes pushed below current stack frame
 }
 
 type Generator struct {
@@ -34,6 +35,26 @@ type Generator struct {
 func (g *Generator) label() string {
 	g.labelCount++
 	return fmt.Sprintf(".label_%d", g.labelCount)
+}
+
+func (g *Generator) push(reg string) {
+	g.writefln("push %s", reg)
+	g.ctx.stackDepth += 8
+}
+
+func (g *Generator) pop(reg string) {
+	g.writefln("push %s", reg)
+	g.ctx.stackDepth -= 8
+}
+
+// delta > 0 means sub (grow stack), delta < 0 means add (shrink)
+func (g *Generator) adjustStack(delta int) {
+	if delta > 0 {
+		g.writefln("sub $%d, %%rsp", delta)
+	} else {
+		g.writefln("add $%d, %%rsp", -delta)
+	}
+	g.ctx.stackDepth += delta
 }
 
 // loadScalar moves the local at offset into %rax.
@@ -557,10 +578,10 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 			if t.Equals(ast.BasicTypePtr(ast.Float)) {
 				g.writeln("movq %xmm0, %rax")
 			}
-			g.writeln("push %rax")
+			g.push("%rax")
 		case *ast.SliceType, *ast.ArrayType:
-			g.writeln("push %rbx # length")
-			g.writeln("push %rax # pointer")
+			g.push("%rbx")
+			g.push("%rax")
 		default:
 			panic("unexpected argument type")
 		}
@@ -600,7 +621,14 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 
 	// discard register argument slots
 	if adjustment > 0 {
-		g.writefln("add $%d, %%rsp", adjustment)
+		g.adjustStack(-adjustment)
+	}
+
+	// align before call
+	misalignment := g.ctx.stackDepth % 16
+	pad := 16 - misalignment
+	if misalignment != 0 {
+		g.adjustStack(pad)
 	}
 
 	if g.externals[c.Identifier.Resolved] {
@@ -611,9 +639,13 @@ func (g *Generator) VisitCall(c *ast.Call) error {
 		g.writefln("call %s", c.Identifier.Name)
 	}
 
+	if misalignment != 0 {
+		g.adjustStack(-pad)
+	}
+
 	// clean up the remaining stack arguments
 	if stackSlotsUsed > 0 {
-		g.writefln("add $%d, %%rsp", stackSlotsUsed*8)
+		g.adjustStack(-stackSlotsUsed * 8)
 	}
 
 	return nil
