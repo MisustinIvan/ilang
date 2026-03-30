@@ -1,32 +1,23 @@
 extrn unit printf(string format, ...)
 
-unit print_array([n]int) {
-	...
+unit print_array([n]int array, string name) {
+	let idx: int = 0;
+	printf("len: %d\n", n);
+	for idx < n {
+		printf("%s[%d] = %d\n", name, idx, array[idx]);
+		idx = idx + 1;
+	};
 }
 
 int main() {
 
-	let x: [3]int = 0;
-	let y: [3]int = 0;
-	x[0] = 1;
-	x[1] = 2;
-	x[2] = 3;
-	y[0] = 4;
-	y[1] = 5;
-	y[2] = 6;
-	printf("value at x[0] = %d\n", x[0]);
-	printf("value at x[1] = %d\n", x[1]);
-	printf("value at x[2] = %d\n", x[2]);
-	printf("value at y[0] = %d\n", y[0]);
-	printf("value at y[1] = %d\n", y[1]);
-	printf("value at y[2] = %d\n", y[2]);
+	let x: [3]int = [1,2,3];
+	let y: [3]int = [4,5,6];
+	print_array(x, "x");
+	print_array(y, "y");
 	x=y;
-	printf("\n");
-	printf("value at x[0] = %d\n", x[0]);
-	printf("value at x[1] = %d\n", x[1]);
-	printf("value at x[2] = %d\n", x[2]);
-	printf("value at y[0] = %d\n", y[0]);
-	printf("value at y[1] = %d\n", y[1]);
-	printf("value at y[2] = %d\n", y[2]);
+	printf("\nx = y\n\n");
+	print_array(x, "x");
+	print_array(y, "y");
 	0
 }
