@@ -41,3 +41,11 @@ clean:
 # Generate the treesitter grammar into ./tree-sitter-grammar
 generate-ts-parser:
 	cd ./tree-sitter-grammar && tree-sitter generate
+
+
+# Run a brainfuck program from the ./examples/brainfuck directory using an interpreter written in ilang
+brainfuck program="sierpinski.bf":
+	go run cmd/compiler/main.go -i ./examples/brainfuck/brainfuck.ilang -s brainfuck.s
+	gcc -g -no-pie -o brainfuck brainfuck.s -lm
+	chmod +x brainfuck
+	cat ./examples/brainfuck/{{program}} | ./brainfuck

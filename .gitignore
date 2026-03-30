@@ -8,3 +8,5 @@
 /docs/grammar/src
 /tree-sitter-grammar/src
 /docs/todo.md
+/brainfuck
+/brainfuck.s

@@ -1,0 +1,70 @@
+extrn int getchar()
+extrn int putchar(int c)
+extrn int printf(string format, ...)
+
+int find_close([]int prog, int pc) {
+	let depth: int = 1;
+	pc = pc + 1;
+	for depth > 0 {
+		if prog[pc] == 91 { depth = depth + 1; } else	# [
+		if prog[pc] == 93 { depth = depth - 1; };		# ]
+
+		if depth > 0 { pc = pc + 1; };
+	};
+	pc
+}
+
+int find_open([]int prog, int pc) {
+	let depth: int = 1;
+	pc = pc - 1;
+	for depth > 0 {
+		if {prog[pc] == 93} { depth = depth + 1; } else	# ]
+		if {prog[pc] == 91} { depth = depth - 1; };		# [
+
+		if depth > 0 { pc = pc - 1; };
+	};
+	pc
+}
+
+int main() {
+	let prog: []int = make(int, 4096);
+	let tape: []int = make(int, 30000);
+	let dp: int = 0;
+	let pc: int = 0;
+
+	let ch: int = getchar();
+	# stop at newline
+	for !(ch == 10) {
+		prog[pc] = ch;
+		pc = pc + 1;
+		ch = getchar();
+	};
+
+	# reset program counter
+	pc = 0;
+
+	for !(prog[pc] == 0) {
+		let cmd: int = prog[pc];
+		if cmd == 62 { dp = dp + 1; };				# >
+		if cmd == 60 { dp = dp - 1; };				# <
+		if cmd == 43 { tape[dp] = (tape[dp] + 1) % 256; };	# +
+		if cmd == 45 { tape[dp] = (tape[dp] - 1 + 256) % 256; };	# -
+		if cmd == 46 { putchar(tape[dp]); };		# .
+		if cmd == 44 { tape[dp] = getchar(); };		# ,
+		if cmd == 91 {								# [
+			if tape[dp] == 0 {
+				pc = find_close(prog, pc);
+			};
+		};
+		if cmd == 93 {								# ]
+			if !(tape[dp] == 0) {
+				pc = find_open(prog, pc);
+			};
+		};
+
+		pc = pc + 1;
+	};
+
+	release(tape);
+	0
+}
