@@ -32,11 +32,11 @@ run example='test.ilang':
 alias c := clean
 # Clean up generated files
 clean:
-	rm example.dot
-	rm graph.png
-	rm example
-	rm example.s
-	rm example.txt
+	rm -f example.dot
+	rm -f graph.png
+	rm -f example
+	rm -f example.s
+	rm -f example.txt
 
 # Generate the treesitter grammar into ./tree-sitter-grammar
 generate-ts-parser:
