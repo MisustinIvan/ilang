@@ -1,0 +1,720 @@
+#set text(font: "Iosevka NF")
+#set page(numbering: "1.")
+#set heading(numbering: "1.")
+
+#import "@preview/nutthead-ebnf:0.3.1": *
+
+#outline(title: [Obsah])
+#pagebreak()
+
+= Gramatika
+
+
+Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozšířenou Backus-Naurovou formou.
+
+#context [
+  #ebnf[
+    #[
+      #syntax-rule(
+        meta-id: [program],
+        definition-list: (
+          [
+            #repeated-sequence(
+              [#grouped-sequence(
+                [#single-definition[external_declaration]],
+                [#single-definition[function_declaration]],
+                [#single-definition[comment]],
+            )])
+          ],
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [comment],
+        definition-list: (
+          [
+            #terminal(illumination: "highlighted")[\#]
+            #special-sequence[any characters]
+            #terminal(illumination: "highlighted")[\\n]
+          ],
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [external_declaration],
+        definition-list: (
+          (indent: 1),
+          [
+            #terminal(illumination: "highlighted")[extrn]
+            #single-definition[type]
+            #single-definition[identifier]
+            #terminal(illumination: "highlighted")[(]
+          ],
+          (indent: 2),
+          [
+            #grouped-sequence([
+              #optional-sequence([
+                #single-definition([argument])
+                #repeated-sequence([
+                  #terminal(illumination: "highlighted")[,]
+                  #single-definition[argument]
+                ])
+                #optional-sequence([
+                  #terminal(illumination: "highlighted")[,]
+                  #terminal(illumination: "highlighted")[...]
+                ])
+              ],)
+            ],
+            [
+              #terminal(illumination: "highlighted")[...]
+            ],)
+          ],
+          (indent: 1),
+          [
+            #terminal(illumination: "highlighted")[)]
+          ],
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [function_declaration],
+        definition-list: (
+          (indent: 1),
+          [
+            #single-definition[type]
+            #single-definition[identifier]
+            #terminal(illumination: "highlighted")[(]
+          ],
+          (indent: 2),
+          [
+            #optional-sequence([
+              #single-definition([argument])
+              #repeated-sequence([
+                #terminal(illumination: "highlighted")[,]
+                #single-definition[argument]
+              ])
+            ],)
+          ],
+          (indent: 1),
+          [
+            #terminal(illumination: "highlighted")[)]
+            #single-definition[block_expression]
+          ],
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [argument],
+        definition-list: ([
+          #single-definition[type]
+          #single-definition[identifier]
+        ],) 
+      )
+
+      #syntax-rule(
+        meta-id: [block_expression],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[{]
+          #repeated-sequence([
+            #single-definition[expression]
+            #terminal(illumination: "highlighted")[;]
+          ],)
+          #optional-sequence([
+            #single-definition[expression]
+          ],)
+          #terminal(illumination: "highlighted")[}]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [expression],
+        definition-list: ([
+          #grouped-sequence(
+          [#single-definition[return]],
+          [#single-definition[bind]],
+          [#single-definition[assignment]],
+          [#single-definition[value]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [value],
+        definition-list: ([
+          #grouped-sequence(
+            [#single-definition[primary]],
+            [#single-definition[binary]],
+            [#single-definition[unary]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [return],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[return]
+          #single-definition[value]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [bind],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[let]
+          #single-definition[identifier]
+          #terminal(illumination: "highlighted")[:]
+          #single-definition[type]
+          #terminal(illumination: "highlighted")[=]
+          #single-definition[value]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [assignment],
+        definition-list: ([
+          #grouped-sequence(
+            [#single-definition[identifier]],
+            [#single-definition[index]],
+            [#single-definition[deref]],
+          )
+          #terminal(illumination: "highlighted")[=]
+          #single-definition[value]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [deref],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[@]
+          #single-definition[identifier]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [binary],
+        definition-list: ([
+          #single-definition[primary]
+          #single-definition[binary_operator]
+          #single-definition[value]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [unary],
+        definition-list: ([
+          #single-definition[unary_operator]
+          #single-definition[primary]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [index],
+        definition-list: ([
+          #single-definition[identifier]
+          #terminal(illumination: "highlighted")[\[]
+          #single-definition[value]
+          #terminal(illumination: "highlighted")[\]]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [primary],
+        definition-list: (
+          grouped-sequence(
+          [#single-definition[literal]],
+          [#single-definition[identifier]],
+          [#single-definition[call]],
+          [#single-definition[separated]],
+          [#single-definition[block]],
+          [#single-definition[condition]],
+          [#single-definition[index]],
+          [#single-definition[deref]],
+          [#single-definition[loop]],
+          [#single-definition[make]],
+          [#single-definition[release]],
+          ),
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [make],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[make]
+          #terminal(illumination: "highlighted")[(]
+          #single-definition[basic_type]
+          #terminal(illumination: "highlighted")[,]
+          #single-definition[value]
+          #terminal(illumination: "highlighted")[)]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [release],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[release]
+          #terminal(illumination: "highlighted")[(]
+          #single-definition[identifier]
+          #terminal(illumination: "highlighted")[)]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [loop],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[for]
+          #single-definition[value]
+          #single-definition[block_expression]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [literal],
+        definition-list: ([
+          #grouped-sequence(
+            [#single-definition[basic_literal]],
+            [#single-definition[array_literal]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [basic_literal],
+        definition-list: ([
+          #grouped-sequence(
+            [#single-definition[int_literal]],
+            [#single-definition[float_literal]],
+            [#single-definition[string_literal]],
+            [#single-definition[bool_literal]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [array_literal],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[\[]
+          #single-definition[value]
+          #repeated-sequence([
+            #terminal(illumination: "highlighted")[,]
+            #single-definition[value]
+          ],)
+          #terminal(illumination: "highlighted")[\]]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [separated],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[(]
+          #single-definition[value]
+          #terminal(illumination: "highlighted")[)]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [condition],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[if]
+          #single-definition[value]
+          #single-definition[value]
+          #optional-sequence([
+            #terminal(illumination: "highlighted")[else]
+            #single-definition[value]
+          ],)
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [identifier],
+        definition-list: ([
+          #single-definition[letter]
+          #repeated-sequence([
+            #grouped-sequence(
+              [#single-definition[letter]],
+              [#single-definition[digit]],
+              [#terminal(illumination: "highlighted")[\_]],
+            )
+          ],)
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [int_literal],
+        definition-list: ([
+          #single-definition[digit]
+          #repeated-sequence(
+              [#single-definition[digit]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [float_literal],
+        definition-list: ([
+          #single-definition[digit]
+          #repeated-sequence(
+              [#single-definition[digit]],
+          )
+          #terminal(illumination: "highlighted")[.]
+          #single-definition[digit]
+          #repeated-sequence(
+              [#single-definition[digit]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [string_literal],
+        definition-list: ([
+          #terminal(illumination: "highlighted")["]
+          #special-sequence[any characters]
+          #terminal(illumination: "highlighted")["]
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [bool_literal],
+        definition-list: ([
+          #grouped-sequence(
+            [#terminal(illumination: "highlighted")[true]],
+            [#terminal(illumination: "highlighted")[false]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [type],
+        definition-list: ([
+          #grouped-sequence(
+            [#single-definition[basic_type]],
+            [#single-definition[array_type]],
+            [#single-definition[slice_type]],
+            [#single-definition[pointer_type]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [basic_type],
+        definition-list: ([
+          #grouped-sequence(
+            [#terminal(illumination: "highlighted")[int]],
+            [#terminal(illumination: "highlighted")[bool]],
+            [#terminal(illumination: "highlighted")[float]],
+            [#terminal(illumination: "highlighted")[string]],
+            [#terminal(illumination: "highlighted")[unit]],
+          )
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [pointer_type],
+        definition-list: ([
+          #terminal(illumination: "highlighted")[^] 
+          #single-definition[basic_type] 
+        ],)
+      )
+
+      #syntax-rule(
+        meta-id: [binary_operator],
+        definition-list: (
+          grouped-sequence(
+          [#terminal(illumination: "highlighted")[+]],
+          [#terminal(illumination: "highlighted")[-]],
+          [#terminal(illumination: "highlighted")[\*]],
+          [#terminal(illumination: "highlighted")[/]],
+          [#terminal(illumination: "highlighted")[==]],
+          [#terminal(illumination: "highlighted")[!=]],
+          [#terminal(illumination: "highlighted")[<]],
+          [#terminal(illumination: "highlighted")[>]],
+          [#terminal(illumination: "highlighted")[<=]],
+          [#terminal(illumination: "highlighted")[>=]],
+          [#terminal(illumination: "highlighted")[<<]],
+          [#terminal(illumination: "highlighted")[>>]],
+          [#terminal(illumination: "highlighted")[||]],
+          ),
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [unary_operator],
+        definition-list: (
+          grouped-sequence(
+          [#terminal(illumination: "highlighted")[-]],
+          [#terminal(illumination: "highlighted")[!]],
+          [#terminal(illumination: "highlighted")[^]],
+          [#terminal(illumination: "highlighted")[@]],
+          ),
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [letter],
+        definition-list: (
+          grouped-sequence(
+          [#special-sequence[a ... z]],
+          [#special-sequence[A ... Z]],
+          ),
+        )
+      )
+
+      #syntax-rule(
+        meta-id: [letter],
+        definition-list: (
+          [#special-sequence[0 ... 9]],
+        )
+      )
+
+    ]
+  ]
+]
+
+#pagebreak()
+= Sémantika
+== Typy
+Jazyk je staticky typovaný. Každý výraz má typ určený při překladu.
+
+Základní typy jsou:
+- *int* - 64bitové celé číslo se znaménkem
+- *float* - 64bitové desetinné číslo, ekvivalent *double* v C
+- *bool* - pravdivostní hodnota *true*(1) nebo *false*(0)
+- *string* - odkaz na řetězec znaků zakončený nulou
+- *unit* - typ bez velikosti, používán pro výrazy bez návratové hodnoty
+
+Složené typy jsou:
+- *[N]T* - pole *N* prvků typu *T* alokované na zásobníku kde *N* je přirozené kladné číslo známé při překladu
+- *[R]T* - odkaz na pole *R* prvků typu *T* alokované na zásobníku nebo haldě
+- *[]T* - odkaz na pole prvků typu *T* alokované na zásobníku nebo haldě
+- *^T* - odkaz na hodnotu základního typu *T*
+
+== Rozsah platnosti
+Jazyk má pro proměnné jediný rozsah platnosti, a to v těle funkce. Všechny proměnné alokované pomocí *let* jsou přístupné od místa deklarace do konce těla funkce. Externí funkce deklarované pomocí *extrn* jsou dostupné v těle každé funkce nezávisle na pořadí deklarace. Normální funkce jsou dostupné ve vlastním těle(pro podporu rekurze) a v těle všech následujících funkcí.
+
+== Hodnoty a výrazy
+Každý výraz vrací hodnotu. Bloky *{ ... }* vrací hodnotu posledního výrazu v těle, pokud za ním není středník. V případě, že poslední výraz za sebou středník má, vrací *0*. Podmínka *if* vrací hodnotu větve, která byla vyhodnocena. Cyklus *for* vrací poslední hodnotu těla, nebo *0* pokud tělo neproběhlo ani jednou.
+
+== Správa paměti
+Pole(arrays) jsou alokována na zásobníku a jejich velikost musí být známa při překladu. Dynamická pole(slices) jsou buďto odkazy na pole na zásobníku(tak jsou pole předávána do funkcí) nebo jsou alokována na haldě pomocí *make(T, N)*, kde *T* je základní typ a *N* je počet prvků, který nemusí být při překladu známý. Vestavěná funkce *make* je abstrakcí nad funkcí z libc *malloc*. Správa paměti je plně na uživateli, a tak musí alokovanou paměť dealokovat pomocí vestavěné funkce *relase(S)* kde *S* je identifikátor s typem *slice*. Vestavěná funkce *release* je abstrakcí nad funckcí z libc *free*.
+
+== Předávání argumentů
+Argumenty jsou předávány hodnotou. Pole a odkazy na pole jsou předávány jako dvojice (*odkaz* *délka*). Úpravy prvků pole uvnitř funkce se tedy projeví i mimo ni, přiřazení pole ale nikoliv. To jenom upraví hodnotu odkazu a délky v lokální proměnné. Výjimka je pro argumenty s typem pole, kde známe délku při překladu. V tom případě dojde při přiřazení k hodnotě se stejným typem k překopírování prvků.
+
+#pagebreak()
+= Psaní programů
+== Hello World
+Jednoduchý program vypisující text na standardní výstup:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+extrn unit printf(string format, ...)
+
+int main() {
+  printf("Hello, world!");
+  0
+}
+```
+]
+
+== Práce s různými typy
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+let x: int = 42;
+let pi: float = 3.14;
+let b: bool = false;
+let s: string = "text";
+```
+]
+
+== Deklarace funkcí
+Jednoduchá funkce vracející součet dvou argumentů:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+extrn unit printf(string format, ...)
+
+int add2(int a, int b) {
+  a+b
+}
+
+int main() {
+  printf("Hello, world!");
+  0
+}
+```
+]
+
+== Vstup a výstup
+Pro vstup a výstup se používají funkce ze standardní knihovny C:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+extrn unit printf(string fmt, ...)
+extrn int scanf(string fmt, ...)
+extrn int putchar(int c)
+extrn int getchar()
+```
+]
+
+== Práce s poli
+Statické pole fixní velikosti:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+let arr: [8]int = [1, 2, 3, 4, 5, 6, 7, 8];
+arr[3] = 13;
+let x: int = arr[3];  # x = 13
+```
+]
+
+Dynamické pole alokované na haldě:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+let n: int = 100;
+let arr: [arr_len]int = make(int, n);
+arr[0] = 42;
+release(arr);
+```
+]
+
+Předání pole do funkce a přiřazení délky lokální proměnné:
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+extrn unit printf(string format, ...)
+
+unit print_int_slice_backwards([slice_len]int slice) {
+  for slice_len > 0 {
+    slice_len = slice_len - 1;
+    printf("slice[%d] = %d\n", slice_len, slice[slice_len]);
+  }
+}
+
+unit main() {
+  let n: int = 10;
+  let arr: []int = make(int, n);
+  print_int_slice_backwards(arr);
+  release(arr);
+}
+```
+]
+
+== Neměnná globální hodnota
+Použití funkce jako globální konstanty
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+int max_buffer_size() { 1024 }
+
+unit main() {
+  let buffer: []int = make(int, max_buffer_size());
+  release(buffer);
+}
+```
+]
+
+== Rekurze
+Využití rekurze pro výpočet faktoriálu:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+int factorial(int n) {
+    if n <= 1 {
+        1
+    } else {
+        n * factorial(n - 1)
+    }
+}
+```
+]
+
+== Cyklus
+Využití návratové hodnody cyklu *for* pro iterativní výpočet faktoriálu:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+let a: int = {
+               let n: int = 5;
+               let res: int = n;
+               for n > 1 {
+                 n = n-1;
+                 res = res * n
+               }
+             };
+```
+]
+
+
+== Odkazy
+Adresa proměnné se získá operátorem *^*, dereference operátorem *@*:
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+int x: int = 42;
+let p: ^int = ^x;
+@p = 100;  # x = 100
+```
+]
+
+Přečtení čísla z standardního vstupu:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+extrn int scanf(string format, ...)
+
+int x: int = 0;
+scanf("%d", ^x);
+```
+]
+
+
+#pagebreak()
+= Překladač
+== Architektura
+Překladač překládá zdrojový kód do GNU assembly pro architekturu x86_64.
+Skládá se z těchto částí:
+- *Lexická analýza* - rozčlenění zdrojového kódu na tokeny
+- *Syntaktická analýza* - sestavení abstraktního syntaktickýho stromu (AST) z tokenů
+- *Vyhodnocení jmen* - projde strom a propojí identifikátory
+- *Vyhodnocení typů* - projde strom a propaguje nahoru typy výrazů
+- *Ověření typů* - ověření, jestli typy ve výrazech odpovídají očekávaným
+- *Generátor kódu* - projde strom a vygeneruje odpovídající assembly
+
+Výsledný assembly kód je přeložen pomocí GCC do spustitelného souboru.
+
+== Volací konvence
+Překladač generuje kód dodržující konvenci System V AMD64 ABI, která se používá na Linuxových systémech. Celočíselné argumenty jsou předávány nejprve šesti registry *%rdi*, *%rsi*, *%rdx*, *%rcx*, *%r8* a *%r9*, argumenty typu *float* nejprve osmi registry *%xmm0*, *%xmm1*, *%xmm2*, *%xmm3*, *%xmm4*, *%xmm5*, *%xmm6* a *%xmm7*. Další argumenty jsou předávány na zásobníku. Před voláním funkcí je zásobník zarovnán na 16 bajtů.
+
+== Použití
+Nejlépe skrz *justfile* pomocí programu #link("https://github.com/casey/just")[#underline(stroke: (thickness: 0.1em, paint: purple))[just]].
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+just --list
+```
+]
+
+Nebo manuálně:
+
+Přeložení programu *program.ilang*:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+go run cmd/compiler/main.go -i ./program.ilang -s ./program.s
+gcc -no-pie -o program program.s
+```
+]
+
+Vypsání tokenů program *program.ilang*
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+go run cmd/compiler/main.go -i ./program.ilang -tk ./program.txt
+```
+]
+
+Vypsání AST programu *program.ilang* ve formátu dot a vytvoření obrázku
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+go run cmd/compiler/main.go -i ./program.ilang -tk ./program.dot
+dot -Tpng program.dot -o program.png
+```
+]
