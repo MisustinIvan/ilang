@@ -1,0 +1,10 @@
+extrn unit printf(string format, ...)
+
+int add2(int a, int b) {
+	return a+b;
+	0
+}
+
+unit main() {
+	printf("add2(1,2) = %d\n", add2(1,2));
+}
