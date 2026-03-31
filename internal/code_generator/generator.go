@@ -394,6 +394,7 @@ func (g *Generator) VisitReturn(r *ast.Return) error {
 	} else {
 		g.writeln("mov $0, %rax")
 	}
+	g.writeln("leave")
 	g.writeln("ret")
 	g.writeln("")
 	return nil
