@@ -921,6 +921,10 @@ func (g *Generator) VisitAssignment(a *ast.Assignment) error {
 				return err
 			}
 			g.storeSlice(offset)
+			if t.LengthIdentifier != nil {
+				lenOffset := g.ctx.locals[t.LengthIdentifier]
+				g.writefln("mov %%rbx, -%d(%%rbp)", lenOffset)
+			}
 		default: // scalar type
 			if err := a.Value.Accept(g); err != nil {
 				return err
