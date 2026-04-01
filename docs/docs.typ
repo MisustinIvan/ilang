@@ -4,6 +4,14 @@
 
 #import "@preview/nutthead-ebnf:0.3.1": *
 
+#align(center)[
+  #text(size: 20pt)[
+    *Dokumentace jazyka Ilang*
+  ]
+]
+
+#v(8em)
+
 #outline(title: [Obsah])
 #pagebreak()
 
