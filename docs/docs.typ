@@ -734,7 +734,7 @@ Překladač generuje kód dodržující konvenci System V AMD64 ABI, která se p
 Nejlépe skrz *justfile* pomocí programu #link("https://github.com/casey/just")[#underline(stroke: (thickness: 0.1em, paint: purple))[just]].
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```sh
 just --list
 ```
 ]
@@ -744,7 +744,7 @@ Nebo manuálně:
 Přeložení programu *program.ilang*:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```sh
 go run cmd/compiler/main.go -i ./program.ilang -s ./program.s
 gcc -no-pie -o program program.s
 ```
@@ -753,7 +753,7 @@ gcc -no-pie -o program program.s
 Vypsání tokenů program *program.ilang*
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```sh
 go run cmd/compiler/main.go -i ./program.ilang -tk ./program.txt
 ```
 ]
@@ -761,7 +761,7 @@ go run cmd/compiler/main.go -i ./program.ilang -tk ./program.txt
 Vypsání AST programu *program.ilang* ve formátu dot a vytvoření obrázku
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```sh
 go run cmd/compiler/main.go -i ./program.ilang -tk ./program.dot
 dot -Tpng program.dot -o program.png
 ```
