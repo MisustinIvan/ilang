@@ -1,6 +1,7 @@
 #set text(font: "Iosevka NF")
 #set page(numbering: "1.")
 #set heading(numbering: "1.")
+#set raw(syntaxes: ("syntax.sublime-syntax",))
 
 #import "@preview/nutthead-ebnf:0.3.1": *
 
@@ -507,6 +508,29 @@ Pole(arrays) jsou alokována na zásobníku a jejich velikost musí být známa 
 == Předávání argumentů
 Argumenty jsou předávány hodnotou. Pole a odkazy na pole jsou předávány jako dvojice (*odkaz* *délka*). Úpravy prvků pole uvnitř funkce se tedy projeví i mimo ni, přiřazení pole ale nikoliv. To jenom upraví hodnotu odkazu a délky v lokální proměnné. Výjimka je pro argumenty s typem pole, kde známe délku při překladu. V tom případě dojde při přiřazení k hodnotě se stejným typem k překopírování prvků.
 
+== Precedence operátorů
+Precedence operátorů není přímo definována gramatikou, ale následující tabulkou:
+
+#grid(
+  columns: 2,
+  rows: 22pt,
+  stroke: 0.5pt + black,
+  inset: 5pt,
+  align: horizon,
+  [1], [||],
+  [2], [&&],
+  [3], [==, !=],
+  [4], [<, >, <=, >=],
+  [5], [+, -],
+  [6], [\*, /],
+  [7], [<<, >>],
+)
+
+== Omezení
+Logické operátory nepodporují zkrácené vyhodnocení, vždy se vyhodnotí celý výraz.
+Indexování je povoleno jenom pro hodnoty typu *slice* nebo *array*, ne pro hodnoty typu *string*.
+Koerce typů je podporována jen pro implicitní převod hodnoty typu *array* na odkaz typu *slice*.
+
 #pagebreak()
 = Psaní programů
 == Hello World
@@ -740,5 +764,279 @@ Vypsání AST programu *program.ilang* ve formátu dot a vytvoření obrázku
 ```
 go run cmd/compiler/main.go -i ./program.ilang -tk ./program.dot
 dot -Tpng program.dot -o program.png
+```
+]
+
+#pagebreak()
+== Rozbor konkrétního programu
+Následuje rozbor programu který implementuje buněčný automat #link("https://en.wikipedia.org/wiki/Rule_110")[#underline(stroke: (thickness: 0.1em, paint: purple))[rule110]].
+
+Celý zdrojový kód je dostupný v *examples/rule110.ilang*
+
+Deklarace dvou externích funkcí:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+extrn unit printf(string format, ...)
+extrn unit scanf(string format, ...)
+```
+]
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+assembly:
+```yasm
+.extern printf
+.extern scanf
+```
+]
+
+Deklarace funkce která vypíše stav buněk:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+unit print_board([slice_len]int board) {
+	let idx: int = 0;
+	for idx < slice_len {
+		printf(if !(board[idx] == 1) { " " } else { "#" });
+		idx = idx + 1;
+	};
+	printf("\n");
+}
+```
+]
+
+Prolog funkce:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+assembly:
+```yasm
+print_board:
+push %rbp
+mov %rsp, %rbp
+sub $32, %rsp # alokace lokálních proměnných
+```
+]
+
+Přesun argumentů funkce do lokálních proměnných:
+
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+assembly:
+```yasm
+mov %rdi, -24(%rbp) # odkaz na pole
+mov %rsi, -16(%rbp) # délka pole
+mov %rsi, -8(%rbp) # délka pole dostupná v lokální proměnné
+```
+]
+
+Přiřazení hodnoty *0* lokální proměnné *idx*:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+let idx: int = 0;
+```
+]
+
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+assembly:
+```yasm
+mov $0, %rax
+mov %rax, -32(%rbp)
+```
+]
+
+Cyklus *for*:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+for idx < slice_len {
+  ...
+};
+```
+]
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+assembly:
+```yasm
+mov $0, %rax # výchozí návratová hodnota cyklu
+.label_1:
+push %rax # uložení navratové hodnoty
+# binární výraz
+mov -32(%rbp), %rax # levá strana - lokální proměnná
+push %rax
+mov -8(%rbp), %rax # pravá strana - lokální proměnná
+mov %rax, %rbx
+pop %rax
+cmp %rbx, %rax # binární operátor - menší než
+setl %al
+movzbq %al, %rax
+cmp $1, %rax
+jne .label_2 # pokud není pravda, skok na konec cyklu
+pop %rax # smazání předchozí návratové hodnoty
+
+  ... # tělo cyklu
+  
+jmp .label_1
+.label_2:
+pop %rax # načtení návratové hodnoty
+```
+]
+
+#pagebreak()
+
+Volání externí funkce *printf* s kondicí jako argumentem:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+printf(if !(board[idx] == 1) { " " } else { "#" });
+```
+]
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+assembly:
+```yasm
+mov -32(%rbp), %rax # hodnota indexu
+push %rax
+mov -24(%rbp), %rcx # odkaz na pole
+pop %rdx
+mov (%rcx, %rdx, 8), %rax # indexování odkazu na pole hodnotou
+push %rax
+mov $1, %rax # hodnota 1
+mov %rax, %rbx
+pop %rax
+cmp %rbx, %rax # binární operátor - rovnost
+sete %al
+movzbq %al, %rax
+cmp $0, %rax # kondice
+sete %al
+movzbq %al, %rax
+cmp $1, %rax
+je .label_3
+jmp .label_4
+.label_3: # větev if
+lea .const_0(%rip), %rax # odkaz na řetězec
+jmp .label_5
+.label_4:  # větev else
+lea .const_1(%rip), %rax # odkaz na řetězec
+.label_5:
+push %rax
+mov 0(%rsp), %rax
+mov %rax, %rdi # 1. argument funkce printf
+add $8, %rsp # zarovnání zásobníku
+mov $0, %rax # počet variadických argumentů
+call printf@PLT # volání externí funkce
+```
+]
+
+#pagebreak()
+
+Funkce vracející hodnotu buňky v závislosti na jejím okolí:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+int rule110(int a, int b, int c) {
+    let table: [8]int = [0, 1, 1, 1, 0, 1, 1, 0];
+    let idx: int = (a << 2) || (b << 1) || c;
+    table[idx]
+}
+```
+]
+
+Funkce která vypočítá nový stav buňek:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+unit next_iter([slice_len]int board, [next_len]int next_board) {
+	let a: int = 0;
+	let b: int = 0;
+	let c: int = 0;
+	let idx: int = 0;
+	for idx < slice_len {
+		if idx == 0 {
+			a = board[(slice_len - 1)];
+		} else {
+			a = board[(idx - 1)];
+		};
+		b = board[idx];
+		if idx == (slice_len-1) {
+			c = board[0];
+		} else {
+			c = board[(idx + 1)];
+		};
+		let val: int = rule110(a,b,c);
+		next_board[idx] = val;
+		idx = idx+1;
+	};
+}
+```
+]
+
+Funkce která vypočítá a vypíše po *n* sobě jdoucích stavů buněk:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+unit print_n_iterations([board_len]int board, [next_len]int next_board, int iters) {
+	for iters > 0 {
+		let tmp: []int = board;
+		next_iter(board, next_board);
+		print_board(next_board);
+		tmp = board;
+		board = next_board;
+		next_board = tmp;
+		iters = iters - 1;
+	}
+}
+```
+]
+
+#pagebreak()
+
+Funkce k přečtení čísla od uživatele ze standardního vstupu:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+int read_number_from_stdin(string prompt) {
+	let number: int = 0;
+	printf(prompt);
+	scanf("%d", ^number);
+	number
+}
+```
+]
+
+Vstupní bod programu:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```ilang
+int main() {
+	let size: int = read_number_from_stdin("board size: ");
+	let board: []int = make(int, size);
+	let next_board: []int = make(int, size);
+	board[size-1] = 1;
+	print_board(board);
+	print_n_iterations(board, next_board, size-1);
+	release(board);
+	release(next_board);
+	0
+}
+```
+]
+
+Příklad výstupu pro *n* = 10:
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+board size: 10
+         #
+        ##
+       ###
+      ## #
+     #####
+    ##   #
+   ###  ##
+  ## # ###
+ ####### #
+##     ###
 ```
 ]

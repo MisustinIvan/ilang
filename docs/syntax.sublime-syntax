@@ -1,0 +1,58 @@
+%YAML 1.2
+---
+name: ilang
+file_extensions: [ilang]
+scope: source.ilang
+
+contexts:
+  main:
+    - include: comment
+    - include: keywords
+    - include: types
+    - include: literals
+    - include: operators
+    - include: function-def
+    - include: function-call
+    - include: identifiers
+
+  comment:
+    - match: '#.*$'
+      scope: comment.line.ilang
+
+  keywords:
+    - match: \b(return|let|extrn|if|else|for|make|release)\b
+      scope: keyword.control.ilang
+
+  types:
+    - match: \b(int|bool|float|string|unit)\b
+      scope: storage.type.ilang
+    - match: '\^'
+      scope: storage.type.ilang
+
+  literals:
+    - match: '"[^"]*"'
+      scope: string.quoted.double.ilang
+    - match: \b(true|false)\b
+      scope: constant.language.ilang
+    - match: \b\d+\.\d*\b
+      scope: constant.numeric.float.ilang
+    - match: \b\d+\b
+      scope: constant.numeric.integer.ilang
+
+  operators:
+    - match: '==|!=|<=|>=|<<|>>|&&|\|\||[+\-*/<>!@^]'
+      scope: keyword.operator.ilang
+
+  function-def:
+    - match: '\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\()'
+      captures:
+        1: entity.name.function.ilang
+
+  function-call:
+    - match: '\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\()'
+      captures:
+        1: entity.name.function.ilang
+
+  identifiers:
+    - match: '\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+      scope: variable.other.ilang
