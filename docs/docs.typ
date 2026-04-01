@@ -543,6 +543,22 @@ int main() {
 ```
 ]
 
+== Externí funkce
+Ukázka použití funkcí z *\<math.h\>*, při překladu pomocí *gcc* potom nutno poskytnout linker flag *-lm*
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```
+extrn unit srand(int seed)
+extrn int time(int loc)
+extrn int rand()
+
+srand(time(0));
+let random_number: int = rand();
+```
+]
+
+#pagebreak()
+
 == Vstup a výstup
 Pro vstup a výstup se používají funkce ze standardní knihovny C:
 
