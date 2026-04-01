@@ -578,7 +578,7 @@ Základní typy jsou:
 - *int* - 64bitové celé číslo se znaménkem
 - *float* - 64bitové desetinné číslo, ekvivalent *double* v C
 - *bool* - pravdivostní hodnota *true*(1) nebo *false*(0)
-- *string* - odkaz na řetězec znaků zakončený nulou
+- *string* - odkaz na řetězec znaků zakončený nulovým znakem
 - *unit* - typ bez velikosti, používán pro výrazy bez návratové hodnoty
 
 Složené typy jsou:
