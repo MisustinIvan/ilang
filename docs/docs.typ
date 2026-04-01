@@ -591,7 +591,7 @@ Složené typy jsou:
 Jazyk má pro proměnné jediný rozsah platnosti, a to v těle funkce. Všechny proměnné alokované pomocí *let* jsou přístupné od místa deklarace do konce těla funkce. Externí funkce deklarované pomocí *extrn* jsou dostupné v těle každé funkce nezávisle na pořadí deklarace. Normální funkce jsou dostupné ve vlastním těle(pro podporu rekurze) a v těle všech následujících funkcí.
 
 == Hodnoty a výrazy
-Každý výraz vrací hodnotu. Bloky *{ ... }* vrací hodnotu posledního výrazu v těle, pokud za ním není středník. V případě, že poslední výraz za sebou středník má, vrací *0*. Podmínka *if* vrací hodnotu větve, která byla vyhodnocena. Cyklus *for* vrací poslední hodnotu těla, nebo *0* pokud tělo neproběhlo ani jednou.
+Každý výraz vrací hodnotu. Bloky *{ ... }* vrací hodnotu posledního výrazu v těle, pokud za ním není středník *;*. V případě, že poslední výraz za sebou středník *;* má, vrací *0*. Podmínka *if* vrací hodnotu větve, která byla vyhodnocena. Cyklus *for* vrací poslední hodnotu těla, nebo *0* pokud tělo neproběhlo ani jednou.
 
 == Správa paměti
 Pole(arrays) jsou alokována na zásobníku a jejich velikost musí být známa při překladu. Dynamická pole(slices) jsou buďto odkazy na pole na zásobníku(tak jsou pole předávána do funkcí) nebo jsou alokována na haldě pomocí *make(T, N)*, kde *T* je základní typ a *N* je počet prvků, který nemusí být při překladu známý. Vestavěná funkce *make* je abstrakcí nad funkcí z libc *malloc*. Správa paměti je plně na uživateli, a tak musí alokovanou paměť dealokovat pomocí vestavěné funkce *relase(S)* kde *S* je identifikátor s typem *slice*. Vestavěná funkce *release* je abstrakcí nad funckcí z libc *free*.
