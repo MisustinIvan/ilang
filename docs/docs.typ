@@ -24,6 +24,8 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
 #context [
   #ebnf[
     #[
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [program],
         definition-list: (
@@ -37,7 +39,10 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ],
         )
       )
+]
 
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [comment],
         definition-list: (
@@ -48,7 +53,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ],
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [external_declaration],
         definition-list: (
@@ -84,7 +91,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ],
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [function_declaration],
         definition-list: (
@@ -111,7 +120,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ],
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [argument],
         definition-list: ([
@@ -119,7 +130,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[identifier]
         ],) 
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [block_expression],
         definition-list: ([
@@ -134,7 +147,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")[}]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [expression],
         definition-list: ([
@@ -146,7 +161,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [value],
         definition-list: ([
@@ -157,7 +174,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [return],
         definition-list: ([
@@ -165,7 +184,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[value]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [bind],
         definition-list: ([
@@ -177,7 +198,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[value]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [assignment],
         definition-list: ([
@@ -190,7 +213,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[value]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [deref],
         definition-list: ([
@@ -198,7 +223,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[identifier]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [binary],
         definition-list: ([
@@ -207,7 +234,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[value]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [unary],
         definition-list: ([
@@ -215,7 +244,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[primary]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [index],
         definition-list: ([
@@ -225,7 +256,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")[\]]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [primary],
         definition-list: (
@@ -244,7 +277,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ),
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [make],
         definition-list: ([
@@ -256,7 +291,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")[)]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [release],
         definition-list: ([
@@ -266,7 +303,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")[)]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [loop],
         definition-list: ([
@@ -275,7 +314,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[block_expression]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [literal],
         definition-list: ([
@@ -285,7 +326,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [basic_literal],
         definition-list: ([
@@ -297,7 +340,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [array_literal],
         definition-list: ([
@@ -310,7 +355,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")[\]]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [separated],
         definition-list: ([
@@ -319,7 +366,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")[)]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [condition],
         definition-list: ([
@@ -332,7 +381,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ],)
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [identifier],
         definition-list: ([
@@ -346,7 +397,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ],)
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [int_literal],
         definition-list: ([
@@ -356,7 +409,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [float_literal],
         definition-list: ([
@@ -371,7 +426,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [string_literal],
         definition-list: ([
@@ -380,7 +437,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #terminal(illumination: "highlighted")["]
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [bool_literal],
         definition-list: ([
@@ -390,7 +449,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [type],
         definition-list: ([
@@ -402,7 +463,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [basic_type],
         definition-list: ([
@@ -415,7 +478,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           )
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [pointer_type],
         definition-list: ([
@@ -423,7 +488,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           #single-definition[basic_type] 
         ],)
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [binary_operator],
         definition-list: (
@@ -444,7 +511,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ),
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [unary_operator],
         definition-list: (
@@ -456,7 +525,9 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ),
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [letter],
         definition-list: (
@@ -466,13 +537,16 @@ Níže je vypsaná formální gramatika jazyka ve formě ekvivalentí s rozší�
           ),
         )
       )
+]
 
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
       #syntax-rule(
         meta-id: [letter],
         definition-list: (
           [#special-sequence[0 ... 9]],
         )
       )
+]
 
     ]
   ]
