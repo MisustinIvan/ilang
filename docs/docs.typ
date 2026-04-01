@@ -537,7 +537,7 @@ Koerce typů je podporována jen pro implicitní převod hodnoty typu *array* na
 Jednoduchý program vypisující text na standardní výstup:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 extrn unit printf(string format, ...)
 
 int main() {
@@ -549,7 +549,7 @@ int main() {
 
 == Práce s různými typy
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 let x: int = 42;
 let pi: float = 3.14;
 let b: bool = false;
@@ -561,7 +561,7 @@ let s: string = "text";
 Jednoduchá funkce vracející součet dvou argumentů:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 extrn unit printf(string format, ...)
 
 int add2(int a, int b) {
@@ -579,7 +579,7 @@ int main() {
 Ukázka použití funkcí z *\<math.h\>*, při překladu pomocí *gcc* potom nutno poskytnout linker flag *-lm*
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 extrn unit srand(int seed)
 extrn int time(int loc)
 extrn int rand()
@@ -595,7 +595,7 @@ let random_number: int = rand();
 Pro vstup a výstup se používají funkce ze standardní knihovny C:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 extrn unit printf(string fmt, ...)
 extrn int scanf(string fmt, ...)
 extrn int putchar(int c)
@@ -607,7 +607,7 @@ extrn int getchar()
 Statické pole fixní velikosti:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 let arr: [8]int = [1, 2, 3, 4, 5, 6, 7, 8];
 arr[3] = 13;
 let x: int = arr[3];  # x = 13
@@ -617,7 +617,7 @@ let x: int = arr[3];  # x = 13
 Dynamické pole alokované na haldě:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 let n: int = 100;
 let arr: [arr_len]int = make(int, n);
 arr[0] = 42;
@@ -627,7 +627,7 @@ release(arr);
 
 Předání pole do funkce a přiřazení délky lokální proměnné:
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 extrn unit printf(string format, ...)
 
 unit print_int_slice_backwards([slice_len]int slice) {
@@ -649,7 +649,7 @@ unit main() {
 == Neměnná globální hodnota
 Použití funkce jako globální konstanty
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 int max_buffer_size() { 1024 }
 
 unit main() {
@@ -663,7 +663,7 @@ unit main() {
 Využití rekurze pro výpočet faktoriálu:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 int factorial(int n) {
     if n <= 1 {
         1
@@ -678,7 +678,7 @@ int factorial(int n) {
 Využití návratové hodnody cyklu *for* pro iterativní výpočet faktoriálu:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 let a: int = {
                let n: int = 5;
                let res: int = n;
@@ -694,7 +694,7 @@ let a: int = {
 == Odkazy
 Adresa proměnné se získá operátorem *^*, dereference operátorem *@*:
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 int x: int = 42;
 let p: ^int = ^x;
 @p = 100;  # x = 100
@@ -704,7 +704,7 @@ let p: ^int = ^x;
 Přečtení čísla z standardního vstupu:
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
-```
+```ilang
 extrn int scanf(string format, ...)
 
 int x: int = 0;
