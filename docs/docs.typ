@@ -809,7 +809,7 @@ scanf("%d", ^x);
 == Architektura
 Překladač překládá zdrojový kód do GNU assembly pro architekturu x86_64.
 Skládá se z těchto částí:
-- *Lexická analýza* - rozčlenění zdrojového kódu na tokeny
+- *Lexikální analýza* - rozčlenění zdrojového kódu na tokeny
 - *Syntaktická analýza* - sestavení abstraktního syntaktickýho stromu (AST) z tokenů
 - *Vyhodnocení jmen* - projde strom a propojí identifikátory
 - *Vyhodnocení typů* - projde strom a propaguje nahoru typy výrazů
