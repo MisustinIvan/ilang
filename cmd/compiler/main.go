@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/MisustinIvan/ilang/internal/ast_visualizer"
 	"github.com/MisustinIvan/ilang/internal/code_generator"
@@ -19,85 +21,118 @@ func fail(err error) {
 	os.Exit(1)
 }
 
-func main() {
-	input_path := flag.String("i", "", "input source code file")
-	dump_assembly := flag.String("s", "", "dump generated assembly to provided path")
-	dump_tokens := flag.String("tk", "", "dump tokens of the source file to provided path")
-	dump_ast := flag.String("ast", "", "dump ast of the source file to provided path")
+func writeFile(path, content string) {
+	if err := os.WriteFile(path, []byte(content), os.ModePerm); err != nil {
+		fail(fmt.Errorf("could not write file %q: %v", path, err))
+	}
+}
 
+func main() {
+	inputPath := flag.String("i", "", "input source file (required)")
+	execFile := flag.String("o", "", "output executable")
+	run := flag.Bool("r", false, "run after compilation")
+	dumpAssembly := flag.String("s", "", "write generated assembly to file")
+	dumpTokens := flag.String("tk", "", "write token dump to file")
+	dumpAst := flag.String("ast", "", "write AST dot graph to file")
 	flag.Parse()
 
-	if !flag.Parsed() || *input_path == "" {
-		flag.PrintDefaults()
+	if *inputPath == "" {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	src, err := lexer.ReadFile(*input_path)
+	src, err := lexer.ReadFile(*inputPath)
+	if err != nil {
+		fail(fmt.Errorf("could not read %q: %v", *inputPath, err))
+	}
+
+	l := lexer.New(*src)
+	tokens, err := l.Lex()
+	if err != nil {
+		fail(fmt.Errorf("lex: %v", err))
+	}
+
+	if *dumpTokens != "" {
+		var out strings.Builder
+		for _, token := range tokens {
+			out.WriteString(token.String() + "\n")
+		}
+		writeFile(*dumpTokens, out.String())
+		fmt.Printf("tokens written to %q\n", *dumpTokens)
+	}
+
+	program, err := parser.New(tokens).Parse()
 	if err != nil {
 		fail(err)
 	}
 
-	lexer := lexer.New(*src)
-	tokens, err := lexer.Lex()
+	program, err = name_resolver.NewResolver(program).ResolveNames()
 	if err != nil {
 		fail(err)
 	}
-	if *dump_tokens != "" {
-		file, err := os.Create(*dump_tokens)
+
+	program, err = type_resolver.NewResolver(program).ResolveTypes()
+	if err != nil {
+		fail(err)
+	}
+
+	program, err = type_checker.NewChecker(program).CheckTypes()
+	if err != nil {
+		fail(err)
+	}
+
+	if *dumpAst != "" {
+		graph, err := ast_visualizer.New(program).Visualize()
 		if err != nil {
 			fail(err)
 		}
-		defer file.Close()
+		writeFile(*dumpAst, graph)
+		fmt.Printf("AST written to %q\n", *dumpAst)
+	}
 
-		for _, token := range tokens {
-			_, err := file.WriteString(token.String() + "\n")
-			if err != nil {
-				fail(err)
+	assembly, err := code_generator.New(program).Generate()
+	if err != nil {
+		fail(err)
+	}
+
+	if *dumpAssembly != "" {
+		writeFile(*dumpAssembly, assembly)
+		fmt.Printf("assembly written to %q\n", *dumpAssembly)
+	}
+
+	if *execFile != "" || *run {
+		asmFile, err := os.CreateTemp("", "ilang-*.s")
+		if err != nil {
+			fail(fmt.Errorf("could not create temp file: %v", err))
+		}
+		defer os.Remove(asmFile.Name())
+
+		if _, err := asmFile.WriteString(assembly); err != nil {
+			fail(fmt.Errorf("could not write assembly: %v", err))
+		}
+		asmFile.Close()
+
+		outFile := *execFile
+		if outFile == "" {
+			outFile = "a.out"
+		}
+
+		gcc := exec.Command("gcc", "-no-pie", "-o", outFile, asmFile.Name(), "-lm")
+		gcc.Stdout = os.Stdout
+		gcc.Stderr = os.Stderr
+		if err := gcc.Run(); err != nil {
+			fail(fmt.Errorf("gcc: %v", err))
+		}
+		fmt.Printf("compiled to %q\n", outFile)
+
+		if *run {
+			cmd := exec.Command("./" + outFile)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fail(fmt.Errorf("run: %v", err))
 			}
 		}
-	}
-
-	parser := parser.New(tokens)
-	ast, err := parser.Parse()
-	if err != nil {
-		fail(err)
-	}
-
-	resolver := name_resolver.NewResolver(ast)
-	ast, err = resolver.ResolveNames()
-	if err != nil {
-		fail(err)
-	}
-
-	type_resolver := type_resolver.NewResolver(ast)
-	ast, err = type_resolver.ResolveTypes()
-	if err != nil {
-		fail(err)
-	}
-
-	type_checker := type_checker.NewChecker(ast)
-	ast, err = type_checker.CheckTypes()
-	if err != nil {
-		fail(err)
-	}
-
-	if *dump_ast != "" {
-		visualizer := ast_visualizer.New(ast)
-		graph, err := visualizer.Visualize()
-		if err != nil {
-			fail(err)
-		}
-
-		os.WriteFile(*dump_ast, []byte(graph), os.ModePerm)
-	}
-
-	codeGenerator := code_generator.New(ast)
-	assembly, err := codeGenerator.Generate()
-	if err != nil {
-		fail(err)
-	}
-
-	if *dump_assembly != "" {
-		os.WriteFile(*dump_assembly, []byte(assembly), os.ModePerm)
 	}
 }
