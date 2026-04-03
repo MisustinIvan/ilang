@@ -822,7 +822,17 @@ Výsledný assembly kód je přeložen pomocí GCC do spustitelného souboru.
 Překladač generuje kód dodržující konvenci System V AMD64 ABI, která se používá na Linuxových systémech. Celočíselné argumenty jsou předávány nejprve šesti registry *%rdi*, *%rsi*, *%rdx*, *%rcx*, *%r8* a *%r9*, argumenty typu *float* nejprve osmi registry *%xmm0*, *%xmm1*, *%xmm2*, *%xmm3*, *%xmm4*, *%xmm5*, *%xmm6* a *%xmm7*. Další argumenty jsou předávány na zásobníku. Před voláním funkcí je zásobník zarovnán na 16 bajtů.
 
 == Použití
-Nejlépe skrz *justfile* pomocí programu #link("https://github.com/casey/just")[#underline(stroke: (thickness: 0.1em, paint: purple))[just]].
+Překladač používá konzolové rozhraní, které poskytuje následující argumenty:
+
+- *-h* - vypíše argumenty překladače
+- *-i* - umístění souboru se zdrojovým kódem k překladu
+- *-o* - umístění přeloženého spustitelného souboru
+- *-r* - přeložení programu a následné spuštění
+- *-s* - umístění přeloženého assembly kódu
+- *-a* - umístění AST grafu programu v graphviz .dot formátu
+- *-t* - umístění vypsaných tokenů programu
+
+Pro spuštění programů dostupných v *./examples* nebo zobrazení jejich ast lze použít program #link("https://github.com/casey/just")[#underline(stroke: (thickness: 0.1em, paint: purple))[just]].
 
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
 ```sh
@@ -830,31 +840,20 @@ just --list
 ```
 ]
 
+Spuštění programu kreslícího mandelbrotovu množinu a zobrazení jeho AST
+
+#box(fill: rgb("#D3D3D3"), inset: 1em)[
+```sh
+just r mandelbrot.ilang
+just ad mandelbrot.ilang
+```
+]
+
 Nebo manuálně:
-
-Přeložení programu *program.ilang*:
-
 #box(fill: rgb("#D3D3D3"), inset: 1em)[
 ```sh
-go run cmd/compiler/main.go -i ./program.ilang -s ./program.s
-gcc -no-pie -o program program.s
-```
-]
-
-Vypsání tokenů program *program.ilang*
-
-#box(fill: rgb("#D3D3D3"), inset: 1em)[
-```sh
-go run cmd/compiler/main.go -i ./program.ilang -tk ./program.txt
-```
-]
-
-Vypsání AST programu *program.ilang* ve formátu dot a vytvoření obrázku
-
-#box(fill: rgb("#D3D3D3"), inset: 1em)[
-```sh
-go run cmd/compiler/main.go -i ./program.ilang -tk ./program.dot
-dot -Tpng program.dot -o program.png
+go run cmd/compiler/main.go -i ./examples/mandelbrot.ilang -a mandelbrot.dot
+dot -Tpng mandelbrot.dot -o mandelbrot.png
 ```
 ]
 
@@ -919,6 +918,8 @@ mov %rsi, -16(%rbp) # délka pole
 mov %rsi, -8(%rbp) # délka pole dostupná v lokální proměnné
 ```
 ]
+
+#pagebreak()
 
 Přiřazení hodnoty *0* lokální proměnné *idx*:
 
