@@ -5,7 +5,7 @@ test:
 alias ad := ast-dump
 # Dump the ast of a given file in the ./examples directory, generate an image and open it
 ast-dump example='test.ilang':
-	go run cmd/compiler/main.go -i ./examples/{{example}} -ast example.dot
+	go run cmd/compiler/main.go -i ./examples/{{example}} -a example.dot
 	dot -Tpng example.dot -o graph.png
 	niri msg action focus-workspace 'media'
 	sxiv graph.png
@@ -19,7 +19,7 @@ assembly-dump example='test.ilang':
 alias tk := token-dump
 # Dump the tokens of a given file to ./example.txt
 token-dump example='test.ilang':
-	go run cmd/compiler/main.go -i ./examples/{{example}} -tk example.txt
+	go run cmd/compiler/main.go -i ./examples/{{example}} -t example.txt
 
 alias r := run
 # Compile and run the given source code file from the ./examples directory

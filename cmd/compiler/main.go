@@ -31,12 +31,13 @@ func main() {
 	inputPath := flag.String("i", "", "input source file (required)")
 	execFile := flag.String("o", "", "output executable")
 	run := flag.Bool("r", false, "run after compilation")
+	help := flag.Bool("h", false, "show help")
 	dumpAssembly := flag.String("s", "", "write generated assembly to file")
-	dumpTokens := flag.String("tk", "", "write token dump to file")
-	dumpAst := flag.String("ast", "", "write AST dot graph to file")
+	dumpTokens := flag.String("t", "", "write token dump to file")
+	dumpAst := flag.String("a", "", "write AST dot graph to file")
 	flag.Parse()
 
-	if *inputPath == "" {
+	if *inputPath == "" || *help {
 		flag.Usage()
 		os.Exit(1)
 	}
