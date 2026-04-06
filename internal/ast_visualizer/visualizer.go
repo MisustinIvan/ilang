@@ -231,18 +231,18 @@ func (v *AstVisualizer) VisitBind(b *ast.Bind) error {
 
 func (v *AstVisualizer) VisitLiteral(l *ast.Literal) error {
 	v.WriteNode("Literal: %s", none, l.Value)
-	l.GetType().Accept(v)
+	err := l.GetType().Accept(v)
 	v.Pop()
-	return nil
+	return err
 }
 
 func (v *AstVisualizer) VisitIdentifier(i *ast.Identifier) error {
 	v.WriteNode("Identifier: %s", none, i.Name)
 	v.WriteNode("Resolved: %v", none, i.Resolved != nil)
 	v.Pop()
-	i.GetType().Accept(v)
+	err := i.GetType().Accept(v)
 	v.Pop()
-	return nil
+	return err
 }
 
 func (v *AstVisualizer) VisitCall(c *ast.Call) error {

@@ -302,7 +302,9 @@ func (p *Parser) ParseBlock() (*ast.Block, error) {
 
 		if p.matchCurrent(lexer.Punctuator, ";") && ImplicitReturn == nil {
 			// consume the semicolon
-			p.next()
+			if _, err := p.next(); err != nil {
+				return nil, err
+			}
 			Body = append(Body, expr)
 		} else if ImplicitReturn == nil {
 			ImplicitReturn = expr
@@ -535,7 +537,10 @@ func (p *Parser) parseBinary(left ast.Value, minPrec int) (ast.Value, error) {
 		if prec < minPrec {
 			break
 		}
-		p.next() // consume operator
+		// consume operator
+		if _, err := p.next(); err != nil {
+			return nil, err
+		}
 		var right ast.Value
 		var err error
 		if p.matchCurrent(lexer.Operator, "@") {
@@ -725,7 +730,9 @@ func (p *Parser) ParseArrayLiteral() (*ast.ArrayLiteral, error) {
 		Values = append(Values, val)
 
 		if p.matchCurrent(lexer.Punctuator, ",") {
-			p.next()
+			if _, err := p.next(); err != nil {
+				return nil, err
+			}
 		} else if !p.matchCurrent(lexer.Punctuator, "]") {
 			return nil, parseError("expected ',' or ']' in array literal", p.peek().Position)
 		}
@@ -980,7 +987,9 @@ func (p *Parser) ParseType() (ast.Type, error) {
 	if p.matchCurrent(lexer.Punctuator, "[") {
 		return p.ParseBracketedType()
 	} else if p.matchCurrent(lexer.Operator, "^") {
-		p.next()
+		if _, err := p.next(); err != nil {
+			return nil, err
+		}
 		t, err := p.ParseBasicType()
 		if err != nil {
 			return nil, err

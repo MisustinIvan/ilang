@@ -91,10 +91,10 @@ func (r *Resolver) VisitDeclaration(d *ast.Declaration) error {
 	r.PushScope()                  // function scope
 
 	for _, arg := range d.Args {
-		err = errors.Join(arg.Accept(r))
+		err = errors.Join(err, arg.Accept(r))
 	}
 
-	err = errors.Join(d.Body.Accept(r))
+	err = errors.Join(err, d.Body.Accept(r))
 
 	r.PopScope() // function scope
 	return err
@@ -105,7 +105,7 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 	r.PushScope() // function scope
 
 	for _, arg := range d.Args {
-		err = errors.Join(arg.Accept(r))
+		err = errors.Join(err, arg.Accept(r))
 	}
 
 	r.PopScope() // function scope

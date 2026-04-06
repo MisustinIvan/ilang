@@ -1,8 +1,6 @@
 package code_generator
 
 import (
-	"errors"
-
 	"github.com/MisustinIvan/ilang/internal/ast"
 )
 
@@ -31,13 +29,13 @@ func (f *localFinder) VisitLiteral(l *ast.Literal) error       { return nil }
 func (f *localFinder) VisitIdentifier(i *ast.Identifier) error { return nil }
 func (f *localFinder) VisitDeclaration(d *ast.Declaration) error {
 	for _, arg := range d.Args {
-		arg.Accept(f)
+		_ = arg.Accept(f)
 	}
-	d.Body.Accept(f)
+	_ = d.Body.Accept(f)
 	return nil
 }
 func (f *localFinder) VisitArgument(a *ast.Argument) error {
-	a.Type.Accept(f)
+	_ = a.Type.Accept(f)
 	size := a.Type.Size()
 	_, isArray := a.Type.(*ast.ArrayType)
 	_, isSlice := a.Type.(*ast.SliceType)
@@ -49,69 +47,74 @@ func (f *localFinder) VisitArgument(a *ast.Argument) error {
 }
 func (f *localFinder) VisitReturn(r *ast.Return) error {
 	if r.Value != nil {
-		return r.Value.Accept(f)
+		_ = r.Value.Accept(f)
 	}
 	return nil
 }
 func (f *localFinder) VisitBind(b *ast.Bind) error {
-	b.Type.Accept(f) // handles slice LengthIdentifier
+	_ = b.Type.Accept(f) // handles slice LengthIdentifier
 	f.declareLocal(b.Type.Size(), b.Identifier)
-	b.Value.Accept(f)
+	_ = b.Value.Accept(f)
 	return nil
 }
 func (f *localFinder) VisitCall(c *ast.Call) error {
 	for _, arg := range c.Arguments {
-		arg.Accept(f)
+		_ = arg.Accept(f)
 	}
 	return nil
 }
 func (f *localFinder) VisitSeparated(s *ast.Separated) error { return s.Value.Accept(f) }
 func (f *localFinder) VisitUnary(u *ast.Unary) error         { return u.Value.Accept(f) }
 func (f *localFinder) VisitBinary(u *ast.Binary) error {
-	u.Left.Accept(f)
-	u.Right.Accept(f)
+	_ = u.Left.Accept(f)
+	_ = u.Right.Accept(f)
 	return nil
 }
 func (f *localFinder) VisitBlock(b *ast.Block) error {
 	for _, expr := range b.Body {
-		expr.Accept(f)
+		_ = expr.Accept(f)
 	}
 	if b.ImplicitReturn != nil {
-		b.ImplicitReturn.Accept(f)
+		_ = b.ImplicitReturn.Accept(f)
 	}
 	return nil
 }
 func (f *localFinder) VisitCondition(c *ast.Condition) error {
-	c.Condition.Accept(f)
-	c.Body.Accept(f)
+	_ = c.Condition.Accept(f)
+	_ = c.Body.Accept(f)
 	if c.Else != nil {
-		c.Else.Accept(f)
+		_ = c.Else.Accept(f)
 	}
 	return nil
 }
 func (f *localFinder) VisitAssignment(a *ast.Assignment) error {
-	a.Value.Accept(f)
+	_ = a.Value.Accept(f)
 	return nil
 }
 func (f *localFinder) VisitDereference(d *ast.Dereference) error {
-	return d.Value.Accept(f)
+	_ = d.Value.Accept(f)
+	return nil
 }
 func (f *localFinder) VisitLoop(l *ast.Loop) error {
-	return errors.Join(l.Condition.Accept(f), l.Body.Accept(f))
+	_ = l.Condition.Accept(f)
+	_ = l.Body.Accept(f)
+	return nil
 }
 func (f *localFinder) VisitMake(m *ast.Make) error {
-	return m.Length.Accept(f)
+	_ = m.Length.Accept(f)
+	return nil
 }
 func (f *localFinder) VisitRelease(r *ast.Release) error {
-	return r.Value.Accept(f)
+	_ = r.Value.Accept(f)
+	return nil
 }
 func (f *localFinder) VisitIndex(i *ast.Index) error {
-	i.Index.Accept(f)
+	_ = i.Index.Accept(f)
 	return nil
 }
 func (f *localFinder) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 	for _, val := range a.Values {
-		val.Accept(f)
+		_ = val.Accept(f)
 	}
 	f.declareLocal(a.GetType().Size(), a)
 	return nil
@@ -119,6 +122,6 @@ func (f *localFinder) VisitArrayLiteral(a *ast.ArrayLiteral) error {
 
 func findLocals(d *ast.Declaration) (map[any]int, int) {
 	l := &localFinder{locals: map[any]int{}}
-	d.Accept(l)
+	_ = d.Accept(l)
 	return l.locals, l.stackOffset
 }

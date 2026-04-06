@@ -69,9 +69,9 @@ func (r *Resolver) VisitExternalDeclaration(d *ast.ExternalDeclaration) error {
 }
 
 func (r *Resolver) VisitArgument(a *ast.Argument) error {
-	a.Type.Accept(r)
+	err := a.Type.Accept(r)
 	a.Identifier.SetType(a.Type)
-	return nil
+	return err
 }
 
 func (r *Resolver) VisitBasicType(t *ast.BasicType) error     { return nil }
@@ -92,10 +92,10 @@ func (r *Resolver) VisitReturn(e *ast.Return) error {
 }
 
 func (r *Resolver) VisitBind(b *ast.Bind) error {
-	b.Type.Accept(r)
+	err := b.Type.Accept(r)
 	b.Identifier.SetType(b.Type)
 	b.SetType(b.Type)
-	return b.Value.Accept(r)
+	return errors.Join(err, b.Value.Accept(r))
 }
 
 func literalType(val string) *ast.BasicType {
