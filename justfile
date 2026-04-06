@@ -38,6 +38,10 @@ clean:
 	rm -f example.s
 	rm -f example.txt
 
+alias b := build
+build:
+	go build -o compiler ./cmd/compiler/main.go
+
 # Generate the treesitter grammar into ./tree-sitter-grammar
 generate-ts-parser:
 	cd ./tree-sitter-grammar && tree-sitter generate
