@@ -37,6 +37,7 @@ clean:
 	rm -f example
 	rm -f example.s
 	rm -f example.txt
+	rm -f brainfuck.s
 
 alias b := build
 build:
