@@ -41,7 +41,9 @@ clean:
 
 alias b := build
 build:
-	go build -o compiler ./cmd/compiler/main.go
+	mkdir -p ./build
+	GOOS=linux go build -o ./build/compiler_linux ./cmd/compiler/main.go
+	GOOS=windows go build -o ./build/compiler_windows ./cmd/compiler/main.go
 
 # Generate the treesitter grammar into ./tree-sitter-grammar
 generate-ts-parser:
